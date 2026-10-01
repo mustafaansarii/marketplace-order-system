@@ -57,23 +57,31 @@ export class UberAdapter implements ProviderAdapter {
       return { type: 'ignored' };
     }
 
+    // Process asynchronously so we can return 200 OK immediately
+    this.processAsync(parsed.data, resourceId).catch(err => {
+      console.error(`[Background Task] Failed to process Uber order ${resourceId}:`, err);
+    });
+
+    return { type: 'ignored' }; // Returning 'ignored' or a new type to indicate async ack
+  }
+
+  private async processAsync(notification: any, resourceId: string): Promise<void> {
     const fetchedOrderRaw = await this.client.getOrder(resourceId);
     
     const parsedOrder = UberGetOrderSchema.safeParse(fetchedOrderRaw);
     if (!parsedOrder.success) {
-      throw new PayloadValidationError('Uber Get Order response schema mismatch');
+      throw new Error('Uber Get Order response schema mismatch');
     }
 
     if (parsedOrder.data.id !== resourceId) {
-      throw new UpstreamError(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
+      throw new Error(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
     }
 
-    const draft = mapUberOrder(parsed.data, parsedOrder.data);
+    const draft = mapUberOrder(notification, parsedOrder.data);
     const generatedId = crypto.randomUUID();
     
-    const internalId = await this.repo.upsertFromMarketplace(draft, generatedId);
-
-    return { type: 'upserted', internalId };
+    await this.repo.upsertFromMarketplace(draft, generatedId);
+    console.log(`[Background Task] Successfully saved Uber order ${resourceId}`);
   }
 
   ack(outcome: IngestOutcome): { status: number; body?: unknown } {

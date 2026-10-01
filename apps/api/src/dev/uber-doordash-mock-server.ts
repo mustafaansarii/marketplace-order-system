@@ -62,7 +62,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     const secret = process.env.UBER_CLIENT_SECRET || 'test_secret';
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
 
-    const response = await fetch(`${MARKETPLACE_API}/uber`, {
+    const response = await fetch(`${MARKETPLACE_API}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ app.post('/simulator/trigger/doordash', async (req, res) => {
 
     const token = process.env.DOORDASH_WEBHOOK_AUTH_TOKEN || 'test_doordash_token';
 
-    const response = await fetch(`${MARKETPLACE_API}/doordash`, {
+    const response = await fetch(`${MARKETPLACE_API}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
