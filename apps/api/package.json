@@ -1,0 +1,26 @@
+{
+  "name": "@marketplace/api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"tsx watch src/main.ts\" \"tsx watch src/dev/mock-uber-server.ts\"",
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@marketplace/shared": "*",
+    "concurrently": "^10.0.5",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "mysql2": "^3.24.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.2",
+    "vitest": "^2.0.5"
+  }
+}

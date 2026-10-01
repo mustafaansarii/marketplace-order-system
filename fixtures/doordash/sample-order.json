@@ -1,0 +1,21 @@
+{
+  "id": "dd-12345",
+  "consumer": {
+    "first_name": "John",
+    "last_name": "Smith",
+    "phone": "+15559876543"
+  },
+  "subtotal": 1500,
+  "tax": 150,
+  "categories": [
+    {
+      "items": [
+        {
+          "name": "Burger",
+          "quantity": 2,
+          "price": 750
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "f9f363d1-55c3-42e1-a083-d34346bbecf2",
+  "current_state": "CREATED",
+  "placed_at": "2021-04-12T11:55:51-07:00",
+  "eater": {
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "phone": "+15551234567"
+  },
+  "cart": {
+    "items": [
+      {
+        "title": "Pizza",
+        "quantity": 1,
+        "price": {
+          "unit_price": { "amount": 1000 },
+          "total_price": { "amount": 1000 }
+        }
+      }
+    ]
+  },
+  "payment": {
+    "charges": {
+      "total": { "amount": 1000, "currency_code": "USD" }
+    }
+  }
+}

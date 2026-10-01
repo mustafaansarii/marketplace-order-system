@@ -1,0 +1,64 @@
+import { OrderDraft } from '../../domain/order.js';
+import { DoorDashWebhookPayload } from './schema.js';
+import { OrderStatus } from '@marketplace/shared';
+
+function mapDoorDashStatus(status: string): OrderStatus {
+  switch (status) {
+    case 'NEW':
+    case 'OrderCreate':
+      return OrderStatus.NEW;
+    default:
+      console.warn(`Unknown DoorDash status: ${status}`);
+      return OrderStatus.NEW;
+  }
+}
+
+export function mapDoorDashOrder(
+  payload: DoorDashWebhookPayload,
+  receivedAtMs: number,
+  defaultCurrency: string = 'USD'
+): OrderDraft {
+  const { event, order } = payload;
+  
+  const consumerName = [order.consumer?.first_name, order.consumer?.last_name]
+    .filter(Boolean)
+    .join(' ');
+
+  const lineItems = order.categories.flatMap(category => 
+    category.items.map(item => {
+      // Calculate option sum: Σ(option.price × option.quantity)
+      let optionSum = 0;
+      if (item.extras) {
+        for (const extra of item.extras) {
+          if (extra.options) {
+            for (const option of extra.options) {
+              optionSum += (option.price * option.quantity);
+            }
+          }
+        }
+      }
+      const unitPriceCents = item.price + optionSum;
+      return {
+        name: item.name,
+        quantity: item.quantity,
+        unit_price_cents: unitPriceCents,
+        line_total_cents: unitPriceCents * item.quantity,
+      };
+    })
+  );
+
+  return {
+    provider: 'doordash',
+    external_order_id: order.id,
+    status: mapDoorDashStatus(event.status),
+    customer: {
+      name: consumerName || 'Unknown',
+      phone: order.consumer?.phone || null,
+    },
+    line_items: lineItems,
+    total_cents: order.subtotal + order.tax,
+    currency: defaultCurrency,
+    created_at: new Date(receivedAtMs).toISOString(),
+    raw_payload: { notification: payload, fetched_order: null },
+  };
+}
