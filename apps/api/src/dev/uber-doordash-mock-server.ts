@@ -37,6 +37,7 @@ app.get('/v2/eats/order/:id', (req, res) => {
     const fixturePath = path.join(__dirname, '../../../../fixtures/uber/get-order-response.json');
     const data = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
     data.id = req.params.id;
+    data.placed_at = new Date().toISOString();
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: 'Failed to read fixture' });
@@ -53,12 +54,10 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     const fixturePath = path.join(__dirname, '../../../../fixtures/uber/webhook-orders-notification.json');
     const rawBody = fs.readFileSync(fixturePath, 'utf8');
     
-    // We can inject a random resource_id so we get fresh orders each time
     const payload = JSON.parse(rawBody);
     payload.meta.resource_id = crypto.randomUUID();
     const modifiedBody = JSON.stringify(payload);
 
-    // Sign it like Uber does
     const secret = process.env.UBER_CLIENT_SECRET || 'test_secret';
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
 
@@ -82,8 +81,8 @@ app.post('/simulator/trigger/doordash', async (req, res) => {
     const fixturePath = path.join(__dirname, '../../../../fixtures/doordash/webhook-order-create.json');
     const payload = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
     
-    // Inject a random ID to prevent duplicates
     payload.order.id = crypto.randomUUID();
+    payload.order.estimated_pickup_time = new Date().toISOString();
 
     const token = process.env.DOORDASH_WEBHOOK_AUTH_TOKEN || 'test_doordash_token';
 

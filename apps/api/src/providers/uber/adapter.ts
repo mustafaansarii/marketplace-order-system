@@ -57,12 +57,11 @@ export class UberAdapter implements ProviderAdapter {
       return { type: 'ignored' };
     }
 
-    // Process asynchronously so we can return 200 OK immediately
     this.processAsync(parsed.data, resourceId).catch(err => {
       console.error(`[Background Task] Failed to process Uber order ${resourceId}:`, err);
     });
 
-    return { type: 'ignored' }; // Returning 'ignored' or a new type to indicate async ack
+    return { type: 'ignored' };
   }
 
   private async processAsync(notification: any, resourceId: string): Promise<void> {
