@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsx watch src/main.ts\" \"tsx watch src/dev/mock-uber-server.ts\"",
+    "dev": "concurrently \"tsx watch src/main.ts\" \"tsx watch src/dev/uber-doordash-mock-server.ts\"",
     "build": "tsc",
     "test": "vitest run",
     "lint": "eslint ."
