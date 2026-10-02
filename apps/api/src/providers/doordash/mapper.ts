@@ -1,6 +1,6 @@
 import { OrderDraft } from '../../domain/order.js';
 import { DoorDashWebhookPayload } from './schema.js';
-import { OrderStatus } from '@marketplace/shared';
+import { OrderStatus } from '../../shared/index.js';
 
 function mapDoorDashStatus(status: string): OrderStatus {
   switch (status) {

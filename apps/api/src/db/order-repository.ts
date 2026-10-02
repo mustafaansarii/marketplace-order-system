@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise';
-import { Order, OrderStatus, STATUS_RANK, ListQuery, OrderSummary } from '@marketplace/shared';
+import { Order, OrderStatus, STATUS_RANK, ListQuery, OrderSummary } from '../shared/index.js';
 import { OrderDraft } from '../domain/order.js';
 import { OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from '../http/errors.js';
 

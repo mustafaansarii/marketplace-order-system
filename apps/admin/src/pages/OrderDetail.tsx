@@ -2,7 +2,7 @@ import React from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { formatMoney, OrderStatus, Order, LineItem } from '@marketplace/shared';
+import { formatMoney, OrderStatus, Order, LineItem } from '../shared';
 import { fetcher } from '../lib/api.js';
 import { StatusBadge } from '../components/StatusBadge.js';
 

@@ -1,6 +1,6 @@
 import { OrderDraft } from '../../domain/order.js';
 import { UberGetOrderPayload, UberNotificationPayload } from './schema.js';
-import { OrderStatus } from '@marketplace/shared';
+import { OrderStatus } from '../../shared/index.js';
 
 function mapUberStatus(currentState: string): OrderStatus {
   switch (currentState) {

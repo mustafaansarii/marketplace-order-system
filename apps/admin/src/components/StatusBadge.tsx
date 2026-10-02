@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderStatus } from '@marketplace/shared';
+import { OrderStatus } from '../shared';
 
 export function StatusBadge({ status }: { status: OrderStatus }) {
   const colors: Record<OrderStatus, string> = {

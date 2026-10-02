@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { OrderRepository } from '../db/order-repository.js';
-import { ListQuerySchema } from '@marketplace/shared';
+import { ListQuerySchema } from '../shared/index.js';
 import { PayloadValidationError, OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from './errors.js';
 import { z } from 'zod';
 

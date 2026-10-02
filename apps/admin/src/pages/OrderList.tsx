@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { OrderStatus, formatMoney, OrderSummary } from '@marketplace/shared';
+import { OrderStatus, formatMoney, OrderSummary } from '../shared';
 import { fetcher } from '../lib/api.js';
 import { StatusBadge } from '../components/StatusBadge.js';
 

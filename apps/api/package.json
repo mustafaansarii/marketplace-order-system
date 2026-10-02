@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marketplace/shared": "*",
     "concurrently": "^10.0.5",
     "cors": "^2.8.6",
     "dotenv": "^18.0.5",
