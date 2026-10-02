@@ -1,13 +1,13 @@
 # Marketplace Order System
 
-This repository contains a full-stack monorepo for a unified marketplace ordering system. It ingests incoming webhooks from external food delivery providers (Uber Eats, DoorDash), normalizes them into a unified domain model, and presents them in a real-time admin dashboard for restaurant staff to manage.
+This repository contains a full-stack monorepo for a unified marketplace ordering system. It ingests incoming webhooks from external food delivery providers (Uber Eats, DoorDash), normalizes them into a unified domain model, and presents them in an admin dashboard for restaurant staff to manage.
 
 ## Run Instructions
 
 ### Prerequisites
 - Node.js v22+
 - npm v10+
-- A MySQL database
+- A MySQL database (You can provide the connection string in the `.env` file)
 
 ### How to start the API and admin
 
@@ -16,7 +16,7 @@ This repository contains a full-stack monorepo for a unified marketplace orderin
 npm install
 ```
 
-2. Ensure your `.env` file is properly configured with your MySQL `DATABASE_URL` and provider secrets.
+2. Configure your environment variables. Copy `.env.example` to `.env` and insert your MySQL database URL.
 
 3. Boot the backend API (port 3001), the Mock Uber Server (port 3002), and the React Admin UI (port 5173) simultaneously:
 ```bash
@@ -25,17 +25,63 @@ npm run dev
 
 You can view the dashboard by opening `http://localhost:5173` in your browser.
 
+## Architecture & Workflow
+
+Below is the high-level data flow for how incoming webhooks are processed:
+
+```mermaid
+flowchart TD
+    %% Entities
+    Uber([Uber Server])
+    DD([DoorDash Server])
+    Mock([Local Mock Server\n:3002])
+    
+    subgap
+    API[Marketplace API\n:3001]
+    DB[(MySQL DB)]
+    UI[React Admin UI\n:5173]
+    end
+
+    %% Webhook Flows
+    Uber -- 1. Webhook Notification --> API
+    DD -- Webhook OrderCreate --> API
+    Mock -. Simulated Webhooks .-> API
+    
+    API -- 2. Get Order Details --> Uber
+    
+    %% Processing
+    API -- Normalize & Upsert --> DB
+    UI -- SWR Polling / Mutations --> API
+```
+
 ## cURL Examples
 
-You can simulate incoming webhooks by using the following `curl` commands. Note that the authentication headers must match your `.env` configuration.
+You can test the system either by using our **Mock Server** (easiest for local testing) or by manually simulating the **Marketplace API** webhooks directly.
+
+### Option A: Using the Local Mock Server (Port 3002)
+The Mock Server automatically generates the required authentication headers (like HMAC signatures) and fires webhooks at the Marketplace API for you.
+
+```bash
+# Trigger a random simulated Uber webhook
+curl -s -X POST http://localhost:3002/simulator/trigger/uber
+
+# Trigger a random simulated DoorDash webhook
+curl -s -X POST http://localhost:3002/simulator/trigger/doordash
+```
+
+### Option B: Manual Webhooks to the Marketplace API (Port 3001)
+If you want to manually test the ingestor exactly how a real external provider would hit it, use these commands. Note that the authentication headers must match your `.env` configuration.
 
 **1. Uber Eats Webhook:**
-Uber requires an `X-Uber-Signature` header (HMAC SHA256 of the raw body using the client secret). For local testing, our webhook ingestor handles the payload.
+Uber requires an `X-Uber-Signature` header (HMAC SHA256 of the raw body using the client secret).
 ```bash
+# Generate the HMAC signature using openssl
+export SIGNATURE=$(cat fixtures/uber/webhook-orders-notification.json | openssl dgst -sha256 -hmac "mock-client-secret" | awk '{print $2}')
+
 curl -i -X POST http://localhost:3001/webhooks/orders \
   -H "Content-Type: application/json" \
-  -H "X-Uber-Signature: <GENERATED_HMAC_SHA256_SIGNATURE>" \
-  -d '{"event_id": "812b1a1c-99c5-430b-b18c-3642398687ba", "meta": {"resource_id": "test-uber-resource", "status": "pos.create"}}'
+  -H "X-Uber-Signature: $SIGNATURE" \
+  -d @fixtures/uber/webhook-orders-notification.json
 ```
 
 **2. DoorDash Webhook:**
@@ -43,8 +89,8 @@ DoorDash requires a static Bearer token configured in the dashboard.
 ```bash
 curl -i -X POST http://localhost:3001/webhooks/orders \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer test_doordash_token" \
-  -d '{"event": {"status": "New"}, "order": {"id": "test-dd-order", "estimated_total": 1500, "currency": "USD"}}'
+  -H "Authorization: Bearer mock-dd-token" \
+  -d @fixtures/doordash/webhook-order-create.json
 ```
 
 ## Mapping Table
@@ -54,13 +100,13 @@ curl -i -X POST http://localhost:3001/webhooks/orders \
 | `id` | Generated UUID | Generated UUID |
 | `provider` | `'uber'` | `'doordash'` |
 | `external_order_id` | `meta.resource_id` | `id` (Webhook `order` obj) |
-| `status` | `meta.status` (Webhook) | `event.status` (Webhook) |
+| `status` | `Get Order -> current_state` | `event.status` (Webhook) |
 | `customer.name` | `eater.first_name` + `eater.last_name` | `consumer.first_name` + `consumer.last_name` |
 | `customer.phone` | `eater.phone` | `consumer.phone` |
 | `line_items[].name` | `cart.items[].title` | `order.categories[].items[].name` |
 | `line_items[].quantity` | `cart.items[].quantity` | `order.categories[].items[].quantity` |
 | `line_items[].unit_price`| `cart.items[].price.unit_price` | `order.categories[].items[].price` |
-| `total_cents` | `payment.charges.total.amount` | `order.estimated_total` (or `subtotal` + `tax`) |
+| `total_cents` | `payment.charges.total.amount` | `internal normalization: subtotal + tax` |
 | `currency` | `payment.charges.total.currency_code` | Default to `USD` |
 | `created_at` | `event_time` (Webhook payload) | `event.time` (Webhook payload) |
 | `raw_payload` | Full Get Order Response + Webhook | Full Webhook Payload |
@@ -75,7 +121,8 @@ Reviewing the working notes provided in the brief against the official documenta
 - **DoorDash Customer Phone:** Customer phone numbers are found in `order.consumer.phone` as noted.
 
 ### Rejected / Changed
-- **DoorDash monetary fields:** The working notes were uncertain about which field should become `total_cents` and if tax was included. *Change:* We explicitly map `order.estimated_total`. If it is completely missing, we fallback to summing `subtotal` and `tax`.
+- **DoorDash monetary fields:** The working notes were uncertain about which field should become `total_cents` and if tax was included. *Change:* We fixed DoorDash double-counting by explicitly calculating `total_cents` as the sum of `subtotal` and `tax`.
+- **Uber raw payload preservation:** *Change:* We updated Uber raw webhook payload preservation to ensure a complete audit trail by storing both the webhook payload and the Get Order response.
 
 ### Overruled by official documentation
 - **Uber cart in webhook:** The working notes suggested Uber might include the full cart in the webhook payload. *Overruled:* The official Uber documentation confirms the webhook only contains event IDs and resource IDs. A secondary `Get Order` API call using the `resource_id` is strictly required to get the actual cart.

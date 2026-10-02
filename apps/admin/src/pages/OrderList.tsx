@@ -49,6 +49,7 @@ function OrderFilters({ query, updateQuery }: { query: any, updateQuery: (u: any
         <option value={OrderStatus.PREPARING}>Preparing</option>
         <option value={OrderStatus.READY}>Ready</option>
         <option value={OrderStatus.COMPLETED}>Completed</option>
+        <option value={OrderStatus.CANCELLED}>Cancelled</option>
       </select>
 
       <select 
@@ -104,7 +105,6 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoadi
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-bold text-slate-900">{order.customer.name}</div>
-                <div className="text-xs text-slate-500 hidden sm:block mt-0.5">{order.customer.phone || 'No phone provided'}</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
                 {formatMoney(order.total_cents, order.currency)}
@@ -126,73 +126,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoadi
   );
 }
 
-function OrderPagination({ query, nextCursor, totalCount, updateQuery, onPrev }: { query: any, nextCursor?: string, totalCount?: number, updateQuery: (u: any, r: boolean) => void, onPrev: () => void }) {
-  const currentPage = parseInt(query.page || '1', 10);
-  const limit = parseInt(query.limit || '10', 10);
-  const totalPages = totalCount ? Math.ceil(totalCount / limit) : 1;
 
-  const handleNext = () => {
-    updateQuery({ cursor: nextCursor, page: (currentPage + 1).toString() }, false);
-  };
-
-  return (
-    <div className="flex items-center justify-between py-2">
-      
-      {/* LEFT: Rows per page */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-slate-500">Rows per page:</span>
-        <select 
-          className="bg-transparent border-none text-sm outline-none font-bold text-slate-700 cursor-pointer hover:text-blue-600 transition-colors"
-          value={query.limit}
-          onChange={e => updateQuery({ limit: e.target.value }, true)}
-        >
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-        </select>
-      </div>
-
-      {/* MID: Previous / Current Page / Next */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onPrev}
-          disabled={!query.cursor}
-          title="Previous Page"
-          className={`p-1.5 rounded-lg transition-all ${
-            query.cursor 
-              ? 'text-slate-700 hover:bg-slate-200' 
-              : 'text-slate-300 cursor-not-allowed'
-          }`}
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        
-        <span className="text-sm font-bold text-slate-700 min-w-[2rem] text-center">
-          {currentPage}
-        </span>
-        
-        <button
-          onClick={handleNext}
-          disabled={!nextCursor}
-          title="Next Page"
-          className={`p-1.5 rounded-lg transition-all ${
-            nextCursor 
-              ? 'text-slate-700 hover:bg-slate-200' 
-              : 'text-slate-300 cursor-not-allowed'
-          }`}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* RIGHT: Total Pages */}
-      <div className="text-sm font-medium text-slate-400">
-        Page {currentPage} of {totalPages}
-      </div>
-      
-    </div>
-  );
-}
 
 // --- MAIN PAGE COMPONENT ---
 
@@ -205,22 +139,15 @@ export default function OrderList() {
     status: searchParams.get('status') || '',
     q: searchParams.get('q') || '',
     sort: searchParams.get('sort') || 'time_desc',
-    limit: searchParams.get('limit') || '10',
-    cursor: searchParams.get('cursor') || '',
-    page: searchParams.get('page') || '1',
+    limit: '50',
   }), [searchParams]);
 
   const updateQuery = (updates: Partial<typeof query>, replace = true) => {
     const next = { ...query, ...updates };
-    
-    if (updates.provider !== undefined || updates.status !== undefined || updates.q !== undefined || updates.sort !== undefined || updates.limit !== undefined) {
-      next.cursor = ''; // Reset cursor to page 1 on filter/sort change
-      next.page = '1';  // Reset page number
-    }
 
     const p = new URLSearchParams();
     Object.entries(next).forEach(([k, v]) => {
-      if (v && (k !== 'sort' || v !== 'time_desc') && (k !== 'limit' || v !== '10') && (k !== 'page' || v !== '1')) {
+      if (v && (k !== 'sort' || v !== 'time_desc') && (k !== 'limit' || v !== '50')) {
         p.set(k, v);
       }
     });
@@ -231,7 +158,7 @@ export default function OrderList() {
   const url = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(query).forEach(([k, v]) => { 
-      if (v && k !== 'page') p.set(k, v); 
+      if (v) p.set(k, v); 
     });
     return `/api/orders?${p.toString()}`;
   }, [query]);
@@ -247,14 +174,6 @@ export default function OrderList() {
         isLoading={isLoading} 
         error={error} 
         onRowClick={(id) => navigate(`/orders/${id}`)} 
-      />
-      
-      <OrderPagination 
-        query={query} 
-        nextCursor={data?.next_cursor} 
-        totalCount={data?.total_count}
-        updateQuery={updateQuery} 
-        onPrev={() => navigate(-1)} 
       />
     </div>
   );

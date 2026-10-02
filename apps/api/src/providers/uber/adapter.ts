@@ -22,6 +22,7 @@ export class UberAdapter implements ProviderAdapter {
       typeof payload === 'object' &&
       payload !== null &&
       'event_type' in payload &&
+      (payload as any).event_type === 'orders.notification' &&
       'event_id' in payload &&
       'meta' in payload
     );

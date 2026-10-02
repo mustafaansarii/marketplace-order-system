@@ -27,23 +27,11 @@ export function mapDoorDashOrder(
 
   const lineItems = order.categories.flatMap(category => 
     category.items.map(item => {
-      // Calculate option sum: Σ(option.price × option.quantity)
-      let optionSum = 0;
-      if (item.extras) {
-        for (const extra of item.extras) {
-          if (extra.options) {
-            for (const option of extra.options) {
-              optionSum += (option.price * option.quantity);
-            }
-          }
-        }
-      }
-      const unitPriceCents = item.price + optionSum;
       return {
         name: item.name,
         quantity: item.quantity,
-        unit_price_cents: unitPriceCents,
-        line_total_cents: unitPriceCents * item.quantity,
+        unit_price_cents: item.price,
+        line_total_cents: item.price * item.quantity,
       };
     })
   );

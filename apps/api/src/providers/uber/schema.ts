@@ -31,6 +31,11 @@ export const UberGetOrderSchema = z.object({
 
 export const UberNotificationSchema = z.object({
   event_time: z.number().optional(), // unix seconds
+  event_type: z.string(),
+  event_id: z.string(),
+  meta: z.object({
+    resource_id: z.string().optional(),
+  }).passthrough(),
 });
 
 export type UberGetOrderPayload = z.infer<typeof UberGetOrderSchema>;

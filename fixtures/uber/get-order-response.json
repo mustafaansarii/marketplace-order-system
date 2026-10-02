@@ -268,8 +268,7 @@
         },
         "selected_modifier_groups": null,
         "eater_id": "63578c8b-9cd2-4c4f-91fc-315f575e6a78"
-      },
-    ],
+      } ],
     "fulfillment_issues": [
       {
         "fulfillment_issue_type": "OUT_OF_ITEM",
@@ -316,9 +315,7 @@
           "external_data": "External data for chocolate donut",
           "quantity": 1,
           "fulfillment_action": {
-            "fulfillment_action_type": "SUBSTITUTE_ME",
-
-          }
+            "fulfillment_action_type": "SUBSTITUTE_ME" }
         },
         "item_availability_info": {
           "items_requested": 1,
@@ -355,8 +352,7 @@
           "special_instructions": "",
           "instance_id": "Strawberry-Donut-Instance"
         }
-      },
-    ]
+      } ]
   },
   "payment": {
     "charges": {

@@ -1,27 +1,56 @@
 import mysql from 'mysql2/promise';
 import { Order, OrderStatus, STATUS_RANK, ListQuery, OrderSummary } from '@marketplace/shared';
 import { OrderDraft } from '../domain/order.js';
+import { OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from '../http/errors.js';
 
 export class OrderRepository {
   constructor(private db: mysql.Pool) {}
 
   async upsertFromMarketplace(draft: OrderDraft, generatedId: string): Promise<string> {
+    await this.db.query(
+      `
+        INSERT INTO orders (
+          id, provider, external_order_id, status, customer_name, customer_phone,
+          line_items, total_cents, currency, created_at, updated_at, raw_payload
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          customer_name = VALUES(customer_name),
+          customer_phone = VALUES(customer_phone),
+          line_items = VALUES(line_items),
+          total_cents = VALUES(total_cents),
+          currency = VALUES(currency),
+          updated_at = VALUES(updated_at),
+          raw_payload = VALUES(raw_payload),
+          status = CASE 
+            WHEN VALUES(status) = 'cancelled' THEN 'cancelled'
+            WHEN status = 'cancelled' THEN 'cancelled'
+            WHEN FIELD(VALUES(status), 'new', 'accepted', 'preparing', 'ready', 'completed') > 
+                 FIELD(status, 'new', 'accepted', 'preparing', 'ready', 'completed') THEN VALUES(status)
+            ELSE status
+          END
+      `,
+      [
+        generatedId,
+        draft.provider,
+        draft.external_order_id,
+        draft.status,
+        draft.customer.name,
+        draft.customer.phone,
+        JSON.stringify(draft.line_items),
+        draft.total_cents,
+        draft.currency,
+        new Date(draft.created_at),
+        new Date(),
+        JSON.stringify(draft.raw_payload)
+      ]
+    );
+
     const [rows] = await this.db.query<any[]>(
-      `SELECT id, status, created_at FROM orders WHERE provider = ? AND external_order_id = ?`,
+      `SELECT id FROM orders WHERE provider = ? AND external_order_id = ?`,
       [draft.provider, draft.external_order_id]
     );
 
-    const existingOrder = rows[0];
-
-    if (!existingOrder) {
-      await this.insertOrder(draft, generatedId);
-      return generatedId;
-    }
-
-    const nextStatus = this.resolveNextStatus(existingOrder.status, draft.status);
-
-    await this.updateOrder(existingOrder.id, draft, nextStatus);
-    return existingOrder.id;
+    return rows[0].id;
   }
 
   async list(query: ListQuery): Promise<{ items: OrderSummary[]; next_cursor?: string; total_count: number }> {
@@ -63,7 +92,7 @@ export class OrderRepository {
     }
 
     const items = rows.map(this.toOrderSummary);
-    const nextCursor = hasMore && items.length > 0 ? this.createCursor(items[items.length - 1]) : undefined;
+    const nextCursor = hasMore && items.length > 0 ? this.createCursor(items[items.length - 1]!) : undefined;
 
     return { items, next_cursor: nextCursor, total_count: totalCount };
   }
@@ -72,7 +101,7 @@ export class OrderRepository {
     const currentOrder = await this.findById(id);
 
     if (!currentOrder) {
-      throw new Error('Order not found');
+      throw new OrderNotFoundError();
     }
 
     const statusFlow = [
@@ -86,18 +115,18 @@ export class OrderRepository {
     const currentIndex = statusFlow.indexOf(currentOrder.status as OrderStatus);
 
     if (currentIndex === -1 || currentIndex === statusFlow.length - 1) {
-      throw new Error('Cannot advance from terminal or unknown status');
+      throw new InvalidStatusTransitionError();
     }
 
     const nextStatus = statusFlow[currentIndex + 1];
 
     const [result] = await this.db.query<mysql.ResultSetHeader>(
       `UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status = ?`,
-      [nextStatus, new Date().toISOString(), id, currentOrder.status]
+      [nextStatus, new Date(), id, currentOrder.status]
     );
 
     if (result.affectedRows === 0) {
-      throw new Error('Conflict: Status was changed by another process');
+      throw new ConcurrentUpdateError();
     }
 
     return (await this.findById(id))!;
@@ -120,63 +149,6 @@ export class OrderRepository {
 
   // -------------------------Helper methods-----------------------
 
-  private async insertOrder(draft: OrderDraft, orderId: string): Promise<void> {
-    await this.db.query(
-      `
-        INSERT INTO orders (
-          id, provider, external_order_id, status, customer_name, customer_phone,
-          line_items, total_cents, currency, created_at, updated_at, raw_payload
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
-        orderId,
-        draft.provider,
-        draft.external_order_id,
-        draft.status,
-        draft.customer.name,
-        draft.customer.phone,
-        JSON.stringify(draft.line_items),
-        draft.total_cents,
-        draft.currency,
-        draft.created_at,
-        new Date().toISOString(),
-        JSON.stringify(draft.raw_payload)
-      ]
-    );
-  }
-
-  private async updateOrder(id: string, draft: OrderDraft, status: OrderStatus): Promise<void> {
-    await this.db.query(
-      `
-        UPDATE orders
-        SET status = ?, customer_name = ?, customer_phone = ?, line_items = ?,
-            total_cents = ?, currency = ?, updated_at = ?, raw_payload = ?
-        WHERE id = ?
-      `,
-      [
-        status,
-        draft.customer.name,
-        draft.customer.phone,
-        JSON.stringify(draft.line_items),
-        draft.total_cents,
-        draft.currency,
-        new Date().toISOString(),
-        JSON.stringify(draft.raw_payload),
-        id
-      ]
-    );
-  }
-
-  private resolveNextStatus(currentStatus: string, incomingStatus: OrderStatus): OrderStatus {
-    const currentRank = STATUS_RANK[currentStatus as keyof typeof STATUS_RANK] ?? 0;
-    const incomingRank = STATUS_RANK[incomingStatus as keyof typeof STATUS_RANK] ?? 0;
-
-    if (incomingRank > currentRank || incomingStatus === OrderStatus.CANCELLED) {
-      return incomingStatus;
-    }
-
-    return currentStatus as OrderStatus;
-  }
 
   private buildBaseFilters(query: ListQuery): { conditions: string[]; params: any[] } {
     const conditions: string[] = [];
@@ -227,7 +199,7 @@ export class OrderRepository {
       line_items: typeof row.line_items === 'string' ? JSON.parse(row.line_items) : row.line_items,
       total_cents: row.total_cents,
       currency: row.currency,
-      created_at: row.created_at
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
   }
 
@@ -248,7 +220,7 @@ export class OrderRepository {
       line_items: typeof row.line_items === 'string' ? JSON.parse(row.line_items) : row.line_items,
       total_cents: row.total_cents,
       currency: row.currency,
-      created_at: row.created_at,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
       raw_payload: typeof row.raw_payload === 'string' ? JSON.parse(row.raw_payload) : row.raw_payload
     };
   }

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { OrderRepository } from '../db/order-repository.js';
 import { ListQuerySchema } from '@marketplace/shared';
-import { PayloadValidationError } from './errors.js';
+import { PayloadValidationError, OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from './errors.js';
 import { z } from 'zod';
 
 export function createOrdersRouter(repo: OrderRepository): Router {
@@ -39,11 +39,11 @@ export function createOrdersRouter(repo: OrderRepository): Router {
       const order = await repo.advanceStatus(req.params.id);
       res.json(order);
     } catch (err: any) {
-      if (err.message === 'Order not found') {
+      if (err instanceof OrderNotFoundError) {
         res.status(404).json({ error: err.message });
         return;
       }
-      if (err.message.includes('Conflict') || err.message.includes('terminal')) {
+      if (err instanceof InvalidStatusTransitionError || err instanceof ConcurrentUpdateError) {
         res.status(409).json({ error: err.message });
         return;
       }

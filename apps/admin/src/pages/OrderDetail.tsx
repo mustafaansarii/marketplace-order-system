@@ -123,6 +123,7 @@ export default function OrderDetail() {
         },
         { optimisticData: { ...order, status: nextStatus }, rollbackOnError: true, populateCache: true, revalidate: false }
       );
+      mutate(key => typeof key === 'string' && key.startsWith('/api/orders'));
     } catch (e: any) {
       alert(e.message || 'Error advancing status');
     }

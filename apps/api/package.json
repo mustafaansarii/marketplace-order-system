@@ -6,7 +6,7 @@
     "dev": "concurrently \"tsx watch src/main.ts\" \"tsx watch src/dev/uber-doordash-mock-server.ts\"",
     "build": "tsc",
     "test": "vitest run",
-    "lint": "eslint ."
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@marketplace/shared": "*",

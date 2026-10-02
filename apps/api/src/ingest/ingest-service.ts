@@ -13,10 +13,17 @@ export class IngestService {
       throw new UnrecognizedPayloadError('Invalid JSON');
     }
 
-    const adapter = this.adapters.find(a => a.matches(payload));
-    if (!adapter) {
+    const matchingAdapters = this.adapters.filter(a => a.matches(payload));
+    
+    if (matchingAdapters.length === 0) {
       throw new UnrecognizedPayloadError();
     }
+    
+    if (matchingAdapters.length > 1) {
+      throw new UnrecognizedPayloadError('Payload matched multiple providers (ambiguous)');
+    }
+    
+    const adapter = matchingAdapters[0]!;
 
     adapter.authenticate(input);
 
