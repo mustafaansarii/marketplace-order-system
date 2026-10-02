@@ -22,7 +22,7 @@ describe('Uber Mapper', () => {
     const order = mapUberOrder(notification, fetchedOrder, getOrderJson);
 
     expect(order.provider).toBe('uber');
-    expect(order.external_order_id).toBe('f9f363d1-e1c2-4595-b477-c649845bc953');
+    expect(order.external_order_id).toBe('f9f363d1-55c3-42e1-a083-d34346bbecf2');
     expect(order.status).toBe('new'); // CREATED maps to new
     expect(order.customer.name).toBe('Larry');
     expect(order.customer.phone).toBe('+1 555-555-5555');

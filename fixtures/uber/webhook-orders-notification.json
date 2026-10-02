@@ -1,11 +1,10 @@
 {
-  "event_type": "orders.notification",
-  "event_id": "c138f519-7e37-4d7a-8b83-dbfbf3dbb0fb",
+  "event_id": "c1f7b8a0-2f9b-4b1a-8c1f-4b9a8c1f4b9a",
   "event_time": 1618228551,
+  "event_type": "orders.notification",
   "meta": {
     "resource_id": "f9f363d1-55c3-42e1-a083-d34346bbecf2",
-    "status": "pos",
-    "user_id": "d04022c4-cfbd-45a7-932f-a9db9fc078e3"
+    "status": "pos.create"
   },
-  "resource_href": "https://api.uber.com/v1/eats/orders/f9f363d1-55c3-42e1-a083-d34346bbecf2"
+  "resource_href": "https://api.uber.com/v2/eats/order/f9f363d1-55c3-42e1-a083-d34346bbecf2"
 }

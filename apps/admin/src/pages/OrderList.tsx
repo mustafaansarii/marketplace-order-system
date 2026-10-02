@@ -1,14 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { OrderStatus, formatMoney } from '@marketplace/shared';
+import { OrderStatus, formatMoney, OrderSummary } from '@marketplace/shared';
 import { fetcher } from '../lib/api.js';
 import { StatusBadge } from '../components/StatusBadge.js';
 
 // --- SUB-COMPONENTS ---
 
-function OrderFilters({ query, updateQuery }: { query: any, updateQuery: (u: any) => void }) {
+function OrderFilters({ query, updateQuery }: { query: Record<string, string>, updateQuery: (u: Partial<Record<string, string>>) => void }) {
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -64,28 +64,28 @@ function OrderFilters({ query, updateQuery }: { query: any, updateQuery: (u: any
   );
 }
 
-function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoading: boolean, error: any, onRowClick: (id: string) => void }) {
+function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: OrderSummary[] } | undefined, isLoading: boolean, error: unknown, onRowClick: (id: string) => void }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <table className="min-w-full divide-y divide-slate-100">
         <thead className="bg-slate-50/50">
           <tr>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</th>
-            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Order ID</th>
+            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ">Order ID</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Time</th>
+            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ">Time</th>
             <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider"></th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-slate-100">
           {isLoading && <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium">Loading orders...</td></tr>}
-          {error && <tr><td colSpan={7} className="px-6 py-12 text-center text-red-500 font-medium">Failed to load orders. Please try again.</td></tr>}
+          {!!error && <tr><td colSpan={7} className="px-6 py-12 text-center text-red-500 font-medium">Failed to load orders. Please try again.</td></tr>}
           {!isLoading && !error && data?.items?.length === 0 && (
             <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium">No orders found matching your filters.</td></tr>
           )}
-          {data?.items?.map((order: any) => (
+          {data?.items?.map((order: OrderSummary) => (
             <tr 
               key={order.id} 
               className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
@@ -100,7 +100,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoadi
                   {order.provider}
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono hidden sm:table-cell">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono ">
                 {order.external_order_id.slice(0, 12)}...
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
@@ -112,7 +112,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoadi
               <td className="px-6 py-4 whitespace-nowrap">
                 <StatusBadge status={order.status} />
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500 hidden md:table-cell">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500 ">
                 {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -128,21 +128,79 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: any, isLoadi
 
 
 
+
+function Pagination({ data, cursorHistory, onNext, onPrev, limit, onLimitChange }: { 
+  data: { total_count: number, next_cursor?: string } | undefined, 
+  cursorHistory: string[], 
+  onNext: () => void, 
+  onPrev: () => void,
+  limit: string,
+  onLimitChange: (l: string) => void
+}) {
+  const currentPage = cursorHistory.length + 1;
+  return (
+    <div className="flex justify-between items-center mt-6 px-2">
+      <div className="flex items-center gap-4 w-1/3">
+        <span className="text-sm text-slate-500 font-medium">
+          Total: {data?.total_count || 0}
+        </span>
+        <select 
+          className="border border-slate-200 rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 bg-slate-50 font-medium text-slate-700"
+          value={limit}
+          onChange={e => onLimitChange(e.target.value)}
+        >
+          <option value="10">10 / page</option>
+          <option value="25">25 / page</option>
+          <option value="50">50 / page</option>
+          <option value="100">100 / page</option>
+        </select>
+      </div>
+      
+      <div className="flex justify-center items-center gap-4 w-1/3">
+        <button 
+          onClick={onPrev}
+          disabled={cursorHistory.length === 0}
+          className="p-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-bold text-slate-700 w-16 text-center">Page {currentPage}</span>
+        <button 
+          onClick={onNext}
+          disabled={!data?.next_cursor}
+          className="p-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="w-1/3"></div>
+    </div>
+  );
+}
+
 // --- MAIN PAGE COMPONENT ---
 
 export default function OrderList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
 
   const query = useMemo(() => ({
     provider: searchParams.get('provider') || '',
     status: searchParams.get('status') || '',
     q: searchParams.get('q') || '',
     sort: searchParams.get('sort') || 'time_desc',
-    limit: '50',
+    limit: searchParams.get('limit') || '50',
+    cursor: searchParams.get('cursor') || '',
   }), [searchParams]);
 
   const updateQuery = (updates: Partial<typeof query>, replace = true) => {
+    if (updates.provider !== undefined || updates.status !== undefined || updates.q !== undefined || updates.sort !== undefined) {
+      updates.cursor = '';
+      setCursorHistory([]);
+    }
+
     const next = { ...query, ...updates };
 
     const p = new URLSearchParams();
@@ -153,6 +211,22 @@ export default function OrderList() {
     });
     
     setSearchParams(p, { replace });
+  };
+
+  const handleNext = () => {
+    if (data?.next_cursor) {
+      setCursorHistory([...cursorHistory, query.cursor]);
+      updateQuery({ cursor: data.next_cursor }, false);
+    }
+  };
+
+  const handlePrev = () => {
+    if (cursorHistory.length > 0) {
+      const newHistory = [...cursorHistory];
+      const prevCursor = newHistory.pop() || '';
+      setCursorHistory(newHistory);
+      updateQuery({ cursor: prevCursor }, false);
+    }
   };
 
   const url = useMemo(() => {
@@ -170,10 +244,19 @@ export default function OrderList() {
       <OrderFilters query={query} updateQuery={updateQuery} />
       
       <OrderTable 
-        data={data} 
+        data={data as { items: OrderSummary[] } | undefined} 
         isLoading={isLoading} 
         error={error} 
         onRowClick={(id) => navigate(`/orders/${id}`)} 
+      />
+      
+      <Pagination 
+        data={data as { total_count: number, next_cursor?: string } | undefined}
+        cursorHistory={cursorHistory}
+        onNext={handleNext}
+        onPrev={handlePrev}
+        limit={query.limit || '50'}
+        onLimitChange={(val) => updateQuery({ limit: val })}
       />
     </div>
   );

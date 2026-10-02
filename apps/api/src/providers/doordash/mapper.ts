@@ -48,6 +48,6 @@ export function mapDoorDashOrder(
     total_cents: order.subtotal + order.tax,
     currency: defaultCurrency,
     created_at: new Date(receivedAtMs).toISOString(),
-    raw_payload: { notification: rawPayload, fetched_order: null },
+    raw_payload: { webhook: rawPayload },
   };
 }

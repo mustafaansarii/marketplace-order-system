@@ -58,14 +58,14 @@ export class UberAdapter implements ProviderAdapter {
       return { type: 'ignored' };
     }
 
-    this.processAsync(parsed.data, resourceId).catch(err => {
+    this.processAsync(payload, parsed.data, resourceId).catch(err => {
       console.error(`[Background Task] Failed to process Uber order ${resourceId}:`, err);
     });
 
     return { type: 'ignored' };
   }
 
-  private async processAsync(notification: any, resourceId: string): Promise<void> {
+  private async processAsync(originalPayload: any, notification: any, resourceId: string): Promise<void> {
     const fetchedOrderRaw = await this.client.getOrder(resourceId);
     
     const parsedOrder = UberGetOrderSchema.safeParse(fetchedOrderRaw);
@@ -77,7 +77,7 @@ export class UberAdapter implements ProviderAdapter {
       throw new Error(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
     }
 
-    const draft = mapUberOrder(notification, parsedOrder.data, fetchedOrderRaw);
+    const draft = mapUberOrder(originalPayload, parsedOrder.data, fetchedOrderRaw);
     const generatedId = crypto.randomUUID();
     
     await this.repo.upsertFromMarketplace(draft, generatedId);

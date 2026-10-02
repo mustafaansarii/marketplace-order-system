@@ -49,6 +49,6 @@ export function mapUberOrder(
     created_at: fetchedOrder.placed_at 
       ? new Date(fetchedOrder.placed_at).toISOString() 
       : new Date((notification.event_time || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-    raw_payload: { notification, fetched_order: rawFetchedOrder },
+    raw_payload: { webhook: notification, get_order: rawFetchedOrder },
   };
 }

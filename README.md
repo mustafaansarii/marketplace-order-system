@@ -16,7 +16,7 @@ This repository contains a full-stack monorepo for a unified marketplace orderin
 npm install
 ```
 
-2. Configure your environment variables. Copy `.env.example` to `.env` and insert your MySQL database URL.
+2. Ensure your `.env` file is properly configured and insert your MySQL database URL.
 
 3. Boot the backend API (port 3001), the Mock Uber Server (port 3002), and the React Admin UI (port 5173) simultaneously:
 ```bash
@@ -108,7 +108,7 @@ curl -i -X POST http://localhost:3001/webhooks/orders \
 | `line_items[].unit_price`| `cart.items[].price.unit_price` | `order.categories[].items[].price` |
 | `total_cents` | `payment.charges.total.amount` | `internal normalization: subtotal + tax` |
 | `currency` | `payment.charges.total.currency_code` | Default to `USD` |
-| `created_at` | `event_time` (Webhook payload) | `event.time` (Webhook payload) |
+| `created_at` | `placed_at` (Get Order) | Webhook Ingestion Timestamp |
 | `raw_payload` | Full Get Order Response + Webhook | Full Webhook Payload |
 
 ## Conflicts Log (Verify, Don't Trust)
@@ -117,7 +117,7 @@ Reviewing the working notes provided in the brief against the official documenta
 
 ### Verified as correct
 - **Uber Webhook Signature:** The working note that `X-Uber-Signature` is an HMAC SHA256 signature of the raw request body was verified as correct.
-- **Uber Webhook Response:** Uber does indeed expect a fast 200/204 response. We implemented asynchronous processing to return immediately.
+- **Uber Webhook Response:** Uber does indeed expect a fast HTTP 200 empty response body. We implemented asynchronous processing to return immediately.
 - **DoorDash Customer Phone:** Customer phone numbers are found in `order.consumer.phone` as noted.
 
 ### Rejected / Changed
@@ -142,3 +142,13 @@ The system employs `vitest` for fast, pure-function unit testing.
 ```bash
 npm test
 ```
+
+## Known Trade-offs & Limitations
+
+### Webhook Reliability (Uber)
+Currently, the Uber ingestor responds with an immediate  to acknowledge the webhook, then performs the asynchronous  fetch in the background. If the  fetch fails (e.g., due to a temporary network outage) or the server crashes before saving to MySQL, the order could be dropped without triggering Uber’s built-in webhook retry mechanism. For a production system, a durable queue (like Kafka or AWS SQS) or an outbox pattern should be introduced to guarantee processing.
+
+## Known Trade-offs & Limitations
+
+### Webhook Reliability (Uber)
+Currently, the Uber ingestor responds with an immediate `HTTP 200` to acknowledge the webhook, then performs the asynchronous `Get Order` fetch in the background. If the `Get Order` fetch fails (e.g., due to a temporary network outage) or the server crashes before saving to MySQL, the order could be dropped without triggering Uber's built-in webhook retry mechanism. For a production system, a durable internal processing mechanism (like a message queue) should be introduced to guarantee processing.

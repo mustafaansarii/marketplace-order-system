@@ -58,7 +58,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     const newResourceId = crypto.randomUUID();
     payload.event_id = crypto.randomUUID();
     payload.meta.resource_id = newResourceId;
-    payload.resource_href = `https://api.uber.com/v1/eats/orders/${newResourceId}`;
+    payload.resource_href = `https://api.uber.com/v2/eats/order/${newResourceId}`;
     const modifiedBody = JSON.stringify(payload);
 
     // Sign it like Uber does

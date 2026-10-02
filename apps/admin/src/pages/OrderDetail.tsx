@@ -2,13 +2,13 @@ import React from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { formatMoney, OrderStatus } from '@marketplace/shared';
+import { formatMoney, OrderStatus, Order, LineItem } from '@marketplace/shared';
 import { fetcher } from '../lib/api.js';
 import { StatusBadge } from '../components/StatusBadge.js';
 
 // --- SUB-COMPONENTS ---
 
-function OrderHeader({ order, onAdvance }: { order: any, onAdvance: () => void }) {
+function OrderHeader({ order, onAdvance }: { order: Order, onAdvance: () => void }) {
   const getNextStatusText = (status: string) => {
     switch (status) {
       case OrderStatus.NEW: return 'Accept Order';
@@ -22,7 +22,7 @@ function OrderHeader({ order, onAdvance }: { order: any, onAdvance: () => void }
   const canAdvance = [OrderStatus.NEW, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY].includes(order.status);
 
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-slate-100 pb-6 mb-6">
+    <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pb-6 mb-6">
       <div>
         <div className="flex items-center gap-3 mb-2">
           <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide uppercase ${
@@ -30,7 +30,7 @@ function OrderHeader({ order, onAdvance }: { order: any, onAdvance: () => void }
           }`}>
             {order.provider}
           </span>
-          <span className="text-sm font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+          <span className="text-sm font-mono text-slate-400 px-2 py-0.5">
             {order.external_order_id}
           </span>
         </div>
@@ -53,7 +53,7 @@ function OrderHeader({ order, onAdvance }: { order: any, onAdvance: () => void }
   );
 }
 
-function LineItemsTable({ order }: { order: any }) {
+function LineItemsTable({ order }: { order: Order }) {
   return (
     <table className="min-w-full divide-y divide-slate-100 mb-8">
       <thead>
@@ -65,7 +65,7 @@ function LineItemsTable({ order }: { order: any }) {
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-50">
-        {order.line_items.map((item: any, idx: number) => (
+        {order.line_items.map((item: LineItem, idx: number) => (
           <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
             <td className="py-4 text-sm font-medium text-slate-900">{item.name}</td>
             <td className="py-4 text-sm font-semibold text-slate-500 text-right">×{item.quantity}</td>
@@ -84,7 +84,7 @@ function LineItemsTable({ order }: { order: any }) {
   );
 }
 
-function DebugPayload({ payload }: { payload: any }) {
+function DebugPayload({ payload }: { payload: unknown }) {
   return (
     <details className="mt-8 pt-6 border-t border-slate-100 group">
       <summary className="text-sm font-semibold text-slate-500 cursor-pointer hover:text-slate-800 transition-colors flex items-center gap-2 select-none">
@@ -141,7 +141,7 @@ export default function OrderDetail() {
         <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Orders
       </button>
 
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="p-8 overflow-hidden">
         
         <OrderHeader order={order} onAdvance={advanceOrder} />
         <LineItemsTable order={order} />
