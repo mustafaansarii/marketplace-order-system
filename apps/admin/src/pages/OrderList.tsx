@@ -148,10 +148,10 @@ function Pagination({ data, onNext, onPrev, limit, onLimitChange }: {
           value={limit}
           onChange={e => onLimitChange(e.target.value)}
         >
-          <option value="10">10 / page</option>
-          <option value="25">25 / page</option>
-          <option value="50">50 / page</option>
-          <option value="100">100 / page</option>
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
         </select>
       </div>
       
@@ -163,7 +163,7 @@ function Pagination({ data, onNext, onPrev, limit, onLimitChange }: {
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm font-bold text-slate-700 w-16 text-center">Page {data?.current_page || 1} of {data?.total_pages || 1}</span>
+        <span className="text-sm font-bold text-slate-700 w-16 text-center">{data?.current_page || 1} / {data?.total_pages || 1}</span>
         <button 
           onClick={onNext}
           disabled={!data || data.current_page >= data.total_pages}
