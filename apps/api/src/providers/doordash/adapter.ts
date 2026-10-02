@@ -41,7 +41,7 @@ export class DoorDashAdapter implements ProviderAdapter {
       throw new PayloadValidationError('DoorDash payload schema mismatch');
     }
 
-    const draft = mapDoorDashOrder(parsed.data, Date.now(), this.defaultCurrency);
+    const draft = mapDoorDashOrder(parsed.data, payload, Date.now(), this.defaultCurrency);
     const generatedId = crypto.randomUUID();
 
     const internalId = await this.repo.upsertFromMarketplace(draft, generatedId);

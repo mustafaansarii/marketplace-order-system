@@ -76,7 +76,7 @@ export class UberAdapter implements ProviderAdapter {
       throw new Error(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
     }
 
-    const draft = mapUberOrder(notification, parsedOrder.data);
+    const draft = mapUberOrder(notification, parsedOrder.data, fetchedOrderRaw);
     const generatedId = crypto.randomUUID();
     
     await this.repo.upsertFromMarketplace(draft, generatedId);

@@ -15,6 +15,7 @@ function mapDoorDashStatus(status: string): OrderStatus {
 
 export function mapDoorDashOrder(
   payload: DoorDashWebhookPayload,
+  rawPayload: any,
   receivedAtMs: number,
   defaultCurrency: string = 'USD'
 ): OrderDraft {
@@ -59,6 +60,6 @@ export function mapDoorDashOrder(
     total_cents: order.subtotal + order.tax,
     currency: defaultCurrency,
     created_at: new Date(receivedAtMs).toISOString(),
-    raw_payload: { notification: payload, fetched_order: null },
+    raw_payload: { notification: rawPayload, fetched_order: null },
   };
 }

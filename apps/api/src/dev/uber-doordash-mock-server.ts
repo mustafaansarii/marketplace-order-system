@@ -58,6 +58,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     payload.meta.resource_id = crypto.randomUUID();
     const modifiedBody = JSON.stringify(payload);
 
+    // Sign it like Uber does
     const secret = process.env.UBER_CLIENT_SECRET || 'test_secret';
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
 
@@ -80,7 +81,6 @@ app.post('/simulator/trigger/doordash', async (req, res) => {
   try {
     const fixturePath = path.join(__dirname, '../../../../fixtures/doordash/webhook-order-create.json');
     const payload = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
-    
     payload.order.id = crypto.randomUUID();
     payload.order.estimated_pickup_time = new Date().toISOString();
 

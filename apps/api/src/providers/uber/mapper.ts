@@ -21,7 +21,8 @@ function mapUberStatus(currentState: string): OrderStatus {
 
 export function mapUberOrder(
   notification: UberNotificationPayload,
-  fetchedOrder: UberGetOrderPayload
+  fetchedOrder: UberGetOrderPayload,
+  rawFetchedOrder: any
 ): OrderDraft {
   const eaterName = [fetchedOrder.eater?.first_name, fetchedOrder.eater?.last_name]
     .filter(Boolean)
@@ -48,6 +49,6 @@ export function mapUberOrder(
     created_at: fetchedOrder.placed_at 
       ? new Date(fetchedOrder.placed_at).toISOString() 
       : new Date((notification.event_time || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-    raw_payload: { notification, fetched_order: fetchedOrder },
+    raw_payload: { notification, fetched_order: rawFetchedOrder },
   };
 }
