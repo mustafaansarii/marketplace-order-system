@@ -29,7 +29,7 @@ function OrderFilters({ query, updateQuery }: { query: Record<string, any>, upda
       </form>
 
       <select 
-        className="border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
+        className="w-full sm:w-auto border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
         value={query.provider}
         onChange={e => updateQuery({ provider: e.target.value })}
       >
@@ -39,7 +39,7 @@ function OrderFilters({ query, updateQuery }: { query: Record<string, any>, upda
       </select>
 
       <select 
-        className="border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
+        className="w-full sm:w-auto border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
         value={query.status}
         onChange={e => updateQuery({ status: e.target.value })}
       >
@@ -53,7 +53,7 @@ function OrderFilters({ query, updateQuery }: { query: Record<string, any>, upda
       </select>
 
       <select 
-        className="border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
+        className="w-full sm:w-auto border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50 transition-all font-medium text-slate-700"
         value={query.sort}
         onChange={e => updateQuery({ sort: e.target.value })}
       >
@@ -67,6 +67,7 @@ function OrderFilters({ query, updateQuery }: { query: Record<string, any>, upda
 function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: OrderSummary[] } | undefined, isLoading: boolean, error: unknown, onRowClick: (id: string) => void }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-100">
         <thead className="bg-slate-50/50">
           <tr>
@@ -126,6 +127,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -138,8 +140,8 @@ function Pagination({ data, onNext, onPrev, limit, onLimitChange }: {
   onLimitChange: (l: string) => void
 }) {
     return (
-    <div className="flex justify-between items-center mt-6 px-2">
-      <div className="flex items-center gap-4 w-1/3">
+    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 px-2">
+      <div className="flex items-center gap-4">
         <span className="text-sm text-slate-500 font-medium">
           Total: {data?.total_count || 0}
         </span>
@@ -155,7 +157,7 @@ function Pagination({ data, onNext, onPrev, limit, onLimitChange }: {
         </select>
       </div>
       
-      <div className="flex justify-center items-center gap-4 w-1/3">
+      <div className="flex justify-center items-center gap-4">
         <button 
           onClick={onPrev}
           disabled={!data || data.current_page <= 1}

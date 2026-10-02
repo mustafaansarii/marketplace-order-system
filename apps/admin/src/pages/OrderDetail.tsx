@@ -55,7 +55,8 @@ function OrderHeader({ order, onAdvance }: { order: Order, onAdvance: () => void
 
 function LineItemsTable({ order }: { order: Order }) {
   return (
-    <table className="min-w-full divide-y divide-slate-100 mb-8">
+    <div className="overflow-x-auto mb-8">
+    <table className="min-w-full divide-y divide-slate-100">
       <thead>
         <tr>
           <th className="py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Item</th>
@@ -81,6 +82,7 @@ function LineItemsTable({ order }: { order: Order }) {
         </tr>
       </tfoot>
     </table>
+    </div>
   );
 }
 
