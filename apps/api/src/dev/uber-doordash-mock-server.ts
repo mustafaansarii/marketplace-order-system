@@ -7,16 +7,14 @@ import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load env from the root of the project
 dotenv.config({ path: path.join(__dirname, '../../../../.env') });
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// -------------------------------------------------------------
 // 1. UBER OAUTH & GET ORDER MOCKS (What Uber's API does)
-// -------------------------------------------------------------
+
 let validToken = 'mock-access-token';
 
 app.post('/oauth/v2/token', (req, res) => {
@@ -44,9 +42,8 @@ app.get('/v2/eats/order/:id', (req, res) => {
   }
 });
 
-// -------------------------------------------------------------
 // 2. WEBHOOK SIMULATORS (Acts like the marketplace sending to US)
-// -------------------------------------------------------------
+
 const MARKETPLACE_API = 'http://localhost:3001/webhooks/orders';
 
 app.post('/simulator/trigger/uber', async (req, res) => {
@@ -60,8 +57,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     payload.meta.resource_id = newResourceId;
     payload.resource_href = `https://api.uber.com/v2/eats/order/${newResourceId}`;
     const modifiedBody = JSON.stringify(payload);
-
-    // Sign it like Uber does
+    
     const secret = process.env.UBER_CLIENT_SECRET || 'test_secret';
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
 
