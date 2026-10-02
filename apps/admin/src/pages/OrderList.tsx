@@ -8,7 +8,7 @@ import { StatusBadge } from '../components/StatusBadge.js';
 
 // --- SUB-COMPONENTS ---
 
-function OrderFilters({ query, updateQuery }: { query: Record<string, string>, updateQuery: (u: Partial<Record<string, string>>) => void }) {
+function OrderFilters({ query, updateQuery }: { query: Record<string, any>, updateQuery: (u: Partial<Record<string, any>>) => void }) {
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -70,6 +70,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
       <table className="min-w-full divide-y divide-slate-100">
         <thead className="bg-slate-50/50">
           <tr>
+            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-16">Sr No.</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Platform</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ">Order ID</th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</th>
@@ -80,12 +81,12 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-slate-100">
-          {isLoading && <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium">Loading orders...</td></tr>}
-          {!!error && <tr><td colSpan={7} className="px-6 py-12 text-center text-red-500 font-medium">Failed to load orders. Please try again.</td></tr>}
+          {isLoading && <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-500 font-medium">Loading orders...</td></tr>}
+          {!!error && <tr><td colSpan={8} className="px-6 py-12 text-center text-red-500 font-medium">Failed to load orders. Please try again.</td></tr>}
           {!isLoading && !error && data?.items?.length === 0 && (
-            <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium">No orders found matching your filters.</td></tr>
+            <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-500 font-medium">No orders found matching your filters.</td></tr>
           )}
-          {data?.items?.map((order: OrderSummary) => (
+          {data?.items?.map((order: OrderSummary, idx: number) => (
             <tr 
               key={order.id} 
               className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
@@ -93,6 +94,9 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
               onClick={() => onRowClick(order.id)}
               onKeyDown={(e) => { if (e.key === 'Enter') onRowClick(order.id); }}
             >
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-400">
+                {idx + 1}
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide uppercase ${
                   order.provider === 'uber' ? 'bg-black text-white' : 'bg-[#FF3008] text-white'
@@ -126,19 +130,14 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
   );
 }
 
-
-
-
-function Pagination({ data, cursorHistory, onNext, onPrev, limit, onLimitChange }: { 
-  data: { total_count: number, next_cursor?: string } | undefined, 
-  cursorHistory: string[], 
+function Pagination({ data, onNext, onPrev, limit, onLimitChange }: { 
+  data: { total_count: number, total_pages: number, current_page: number } | undefined, 
   onNext: () => void, 
   onPrev: () => void,
   limit: string,
   onLimitChange: (l: string) => void
 }) {
-  const currentPage = cursorHistory.length + 1;
-  return (
+    return (
     <div className="flex justify-between items-center mt-6 px-2">
       <div className="flex items-center gap-4 w-1/3">
         <span className="text-sm text-slate-500 font-medium">
@@ -159,15 +158,15 @@ function Pagination({ data, cursorHistory, onNext, onPrev, limit, onLimitChange 
       <div className="flex justify-center items-center gap-4 w-1/3">
         <button 
           onClick={onPrev}
-          disabled={cursorHistory.length === 0}
+          disabled={!data || data.current_page <= 1}
           className="p-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <span className="text-sm font-bold text-slate-700 w-16 text-center">Page {currentPage}</span>
+        <span className="text-sm font-bold text-slate-700 w-16 text-center">Page {data?.current_page || 1} of {data?.total_pages || 1}</span>
         <button 
           onClick={onNext}
-          disabled={!data?.next_cursor}
+          disabled={!data || data.current_page >= data.total_pages}
           className="p-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
         >
           <ChevronRight className="w-4 h-4" />
@@ -184,29 +183,27 @@ function Pagination({ data, cursorHistory, onNext, onPrev, limit, onLimitChange 
 export default function OrderList() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
-
+  
   const query = useMemo(() => ({
     provider: searchParams.get('provider') || '',
     status: searchParams.get('status') || '',
     q: searchParams.get('q') || '',
     sort: searchParams.get('sort') || 'time_desc',
     limit: searchParams.get('limit') || '50',
-    cursor: searchParams.get('cursor') || '',
+    page: Number(searchParams.get('page')) || 1,
   }), [searchParams]);
 
   const updateQuery = (updates: Partial<typeof query>, replace = true) => {
     if (updates.provider !== undefined || updates.status !== undefined || updates.q !== undefined || updates.sort !== undefined) {
-      updates.cursor = '';
-      setCursorHistory([]);
+      updates.page = 1;
     }
 
     const next = { ...query, ...updates };
 
     const p = new URLSearchParams();
     Object.entries(next).forEach(([k, v]) => {
-      if (v && (k !== 'sort' || v !== 'time_desc') && (k !== 'limit' || v !== '50')) {
-        p.set(k, v);
+      if (v && (k !== "sort" || v !== "time_desc") && (k !== "limit" || v !== "50") && (k !== "page" || v !== 1)) {
+        p.set(k, String(v));
       }
     });
     
@@ -214,25 +211,21 @@ export default function OrderList() {
   };
 
   const handleNext = () => {
-    if (data?.next_cursor) {
-      setCursorHistory([...cursorHistory, query.cursor]);
-      updateQuery({ cursor: data.next_cursor }, false);
+    if (data && data.current_page < data.total_pages) {
+      updateQuery({ page: data.current_page + 1 }, false);
     }
   };
 
   const handlePrev = () => {
-    if (cursorHistory.length > 0) {
-      const newHistory = [...cursorHistory];
-      const prevCursor = newHistory.pop() || '';
-      setCursorHistory(newHistory);
-      updateQuery({ cursor: prevCursor }, false);
+    if (data && data.current_page > 1) {
+      updateQuery({ page: data.current_page - 1 }, false);
     }
   };
 
   const url = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(query).forEach(([k, v]) => { 
-      if (v) p.set(k, v); 
+      if (v) p.set(k, String(v)); 
     });
     return `/api/orders?${p.toString()}`;
   }, [query]);
@@ -241,7 +234,7 @@ export default function OrderList() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <OrderFilters query={query} updateQuery={updateQuery} />
+      <OrderFilters query={query as any} updateQuery={updateQuery as any} />
       
       <OrderTable 
         data={data as { items: OrderSummary[] } | undefined} 
@@ -251,8 +244,8 @@ export default function OrderList() {
       />
       
       <Pagination 
-        data={data as { total_count: number, next_cursor?: string } | undefined}
-        cursorHistory={cursorHistory}
+        data={data as { total_count: number, total_pages: number, current_page: number } | undefined}
+
         onNext={handleNext}
         onPrev={handlePrev}
         limit={query.limit || '50'}

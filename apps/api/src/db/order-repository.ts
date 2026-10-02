@@ -53,7 +53,7 @@ export class OrderRepository {
     return rows[0].id;
   }
 
-  async list(query: ListQuery): Promise<{ items: OrderSummary[]; next_cursor?: string; total_count: number }> {
+  async list(query: ListQuery): Promise<{ items: OrderSummary[]; total_count: number; total_pages: number; current_page: number }> {
     const { conditions: baseConditions, params: baseParams } = this.buildBaseFilters(query);
     const whereBase = baseConditions.length > 0 ? `WHERE ${baseConditions.join(' AND ')}` : '';
 
@@ -67,12 +67,11 @@ export class OrderRepository {
     const params = [...baseParams];
 
     const sortDirection = query.sort === 'time_asc' ? 'ASC' : 'DESC';
-    const cursorOperator = sortDirection === 'ASC' ? '>' : '<';
-
-    this.addCursorFilter(conditions, params, query.cursor, cursorOperator);
-
+    
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = query.limit ?? 50;
+    const page = query.page ?? 1;
+    const offset = (page - 1) * limit;
 
     const [rows] = await this.db.query<any[]>(
       `
@@ -81,20 +80,15 @@ export class OrderRepository {
         FROM orders
         ${where}
         ORDER BY created_at ${sortDirection}, id ${sortDirection}
-        LIMIT ?
+        LIMIT ? OFFSET ?
       `,
-      [...params, limit + 1]
+      [...params, limit, offset]
     );
 
-    const hasMore = rows.length > limit;
-    if (hasMore) {
-      rows.pop();
-    }
-
     const items = rows.map(this.toOrderSummary);
-    const nextCursor = hasMore && items.length > 0 ? this.createCursor(items[items.length - 1]!) : undefined;
+    const totalPages = Math.ceil(totalCount / limit);
 
-    return { items, next_cursor: nextCursor, total_count: totalCount };
+    return { items, total_count: totalCount, total_pages: totalPages, current_page: page };
   }
 
   async advanceStatus(id: string): Promise<Order> {
@@ -173,19 +167,6 @@ export class OrderRepository {
     return { conditions, params };
   }
 
-  private addCursorFilter(conditions: string[], params: any[], cursor: string | undefined, operator: string): void {
-    if (!cursor) {
-      return;
-    }
-
-    const [cursorTime, cursorId] = cursor.split('|');
-
-    if (cursorTime && cursorId) {
-      conditions.push(`(created_at ${operator} ? OR (created_at = ? AND id ${operator} ?))`);
-      params.push(cursorTime, cursorTime, cursorId);
-    }
-  }
-
   private toOrderSummary(row: any): OrderSummary {
     return {
       id: row.id,
@@ -201,10 +182,6 @@ export class OrderRepository {
       currency: row.currency,
       created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
     };
-  }
-
-  private createCursor(order: OrderSummary): string {
-    return `${order.created_at}|${order.id}`;
   }
 
   private toOrder(row: any): Order {

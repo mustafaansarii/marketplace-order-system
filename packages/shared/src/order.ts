@@ -61,7 +61,7 @@ export const ListQuerySchema = z.object({
   q: z.string().optional(),
   sort: z.enum(['time_asc', 'time_desc']).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
-  cursor: z.string().optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
 });
 
 export type ListQuery = z.infer<typeof ListQuerySchema>;
