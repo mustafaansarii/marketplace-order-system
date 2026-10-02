@@ -36,7 +36,7 @@ flowchart TD
     DD([DoorDash Server])
     Mock([Local Mock Server\n:3002])
     
-    subgap
+    subgraph Internal System
     API[Marketplace API\n:3001]
     DB[(MySQL DB)]
     UI[React Admin UI\n:5173]
