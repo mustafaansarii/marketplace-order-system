@@ -11,15 +11,6 @@ export enum OrderStatus {
 
 export const OrderStatusSchema = z.nativeEnum(OrderStatus);
 
-export const STATUS_RANK: Record<OrderStatus, number> = {
-  [OrderStatus.NEW]: 0,
-  [OrderStatus.ACCEPTED]: 1,
-  [OrderStatus.PREPARING]: 2,
-  [OrderStatus.READY]: 3,
-  [OrderStatus.COMPLETED]: 4,
-  [OrderStatus.CANCELLED]: 99,
-};
-
 export const LineItemSchema = z.object({
   name: z.string(),
   quantity: z.number().int().positive(),
@@ -47,6 +38,8 @@ export const OrderSchema = z.object({
   currency: z.string(),
   created_at: z.string().datetime(), // ISO-8601 UTC
   raw_payload: z.unknown(),
+  can_advance: z.boolean().optional(),
+  next_status: OrderStatusSchema.nullable().optional(),
 });
 
 export type Order = z.infer<typeof OrderSchema>;

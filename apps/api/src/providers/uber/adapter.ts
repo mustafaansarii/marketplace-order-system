@@ -3,18 +3,16 @@ import { IncomingHttpHeaders } from 'http';
 import { verifyUberSignature } from './verify-signature.js';
 import { UberNotificationSchema, UberGetOrderSchema } from './schema.js';
 import { UberClient } from './client.js';
-import { OrderRepository } from '../../db/order-repository.js';
 import { mapUberOrder } from './mapper.js';
-import { PayloadValidationError, UpstreamError } from '../../http/errors.js';
-import * as crypto from 'crypto';
+import { PayloadValidationError } from '../../domain/errors.js';
+import { OrderDraft } from '../../domain/order.js';
 
 export class UberAdapter implements ProviderAdapter {
   id = 'uber' as const;
 
   constructor(
     private clientSecret: string,
-    private client: UberClient,
-    private repo: OrderRepository
+    private client: UberClient
   ) {}
 
   matches(payload: unknown): boolean {
@@ -51,41 +49,31 @@ export class UberAdapter implements ProviderAdapter {
       return { type: 'ignored' };
     }
 
-    if (anyPayload.event_type !== 'orders.notification' && 
-        anyPayload.event_type !== 'orders.cancel' && 
-        anyPayload.event_type !== 'orders.failure') {
+    if (anyPayload.event_type !== 'orders.notification') {
       console.log(`Skipping unsupported Uber event ${anyPayload.event_type}`);
       return { type: 'ignored' };
     }
 
-    this.processAsync(payload, parsed.data, resourceId).catch(err => {
-      console.error(`[Background Task] Failed to process Uber order ${resourceId}:`, err);
-    });
+    return { 
+      type: 'deferred', 
+      process: async (): Promise<OrderDraft> => {
+        const fetchedOrderRaw = await this.client.getOrder(resourceId);
+        
+        const parsedOrder = UberGetOrderSchema.safeParse(fetchedOrderRaw);
+        if (!parsedOrder.success) {
+          throw new Error('Uber Get Order response schema mismatch');
+        }
 
-    return { type: 'ignored' };
-  }
+        if (parsedOrder.data.id !== resourceId) {
+          throw new Error(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
+        }
 
-  private async processAsync(originalPayload: any, notification: any, resourceId: string): Promise<void> {
-    const fetchedOrderRaw = await this.client.getOrder(resourceId);
-    
-    const parsedOrder = UberGetOrderSchema.safeParse(fetchedOrderRaw);
-    if (!parsedOrder.success) {
-      throw new Error('Uber Get Order response schema mismatch');
-    }
-
-    if (parsedOrder.data.id !== resourceId) {
-      throw new Error(`Uber resource ID mismatch. Expected ${resourceId}, got ${parsedOrder.data.id}`);
-    }
-
-    const draft = mapUberOrder(originalPayload, parsedOrder.data, fetchedOrderRaw);
-    const generatedId = crypto.randomUUID();
-    
-    await this.repo.upsertFromMarketplace(draft, generatedId);
-    console.log(`[Background Task] Successfully saved Uber order ${resourceId}`);
+        return mapUberOrder(parsed.data, parsedOrder.data, fetchedOrderRaw);
+      }
+    };
   }
 
   ack(outcome: IngestOutcome): { status: number; body?: unknown } {
     return { status: 200, body: '' };
   }
 }
-

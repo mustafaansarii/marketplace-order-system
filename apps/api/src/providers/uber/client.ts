@@ -1,4 +1,4 @@
-import { UpstreamError } from '../../http/errors.js';
+import { UpstreamError } from '../../domain/errors.js';
 
 export class UberClient {
   constructor(

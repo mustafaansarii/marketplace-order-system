@@ -1,0 +1,39 @@
+{
+  "id": "e4f8d2b0-9a2f-4a3b-8c1d-6e5f8a9b0c2d",
+  "client_receipt_id": "receipt-123",
+  "status": "OrderCreate",
+  "merchant": {
+    "id": "merch-456",
+    "name": "Pizza Palace",
+    "location": {
+      "address": {
+        "street_address": "123 Main St",
+        "city": "San Francisco",
+        "state": "CA",
+        "zip_code": "94105",
+        "country": "US"
+      }
+    }
+  },
+  "consumer": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "phone": "+1 555-123-4567"
+  },
+  "categories": [
+    {
+      "name": "Pizzas",
+      "items": [
+        {
+          "name": "Pepperoni Pizza",
+          "quantity": 1,
+          "price": 1500,
+          "options": []
+        }
+      ]
+    }
+  ],
+  "subtotal": 1500,
+  "tax": 125,
+  "estimated_pickup_time": "2023-10-01T12:00:00Z"
+}

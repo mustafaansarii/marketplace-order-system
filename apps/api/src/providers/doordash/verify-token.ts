@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { AuthError } from '../../http/errors.js';
+import { AuthError } from '../../domain/errors.js';
 
 export function verifyDoorDashToken(
   expectedToken: string,

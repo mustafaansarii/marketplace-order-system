@@ -4,9 +4,9 @@ import { createWebhookRouter } from './http/webhook-route.js';
 import { createOrdersRouter } from './http/orders-routes.js';
 import { errorHandler } from './http/error-middleware.js';
 import { IngestService } from './ingest/ingest-service.js';
-import { OrderRepository } from './db/order-repository.js';
+import { OrderService } from './services/order-service.js';
 
-export function createApp(ingestService: IngestService, repo: OrderRepository) {
+export function createApp(ingestService: IngestService, orderService: OrderService) {
   const app = express();
   
   app.use(cors());
@@ -15,7 +15,7 @@ export function createApp(ingestService: IngestService, repo: OrderRepository) {
 
   app.use(express.json());
 
-  app.use('/api/orders', createOrdersRouter(repo));
+  app.use('/api/orders', createOrdersRouter(orderService));
 
   app.use(errorHandler);
 

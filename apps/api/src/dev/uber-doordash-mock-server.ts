@@ -3,11 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import dotenv from 'dotenv';
+import { config } from '../config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config({ path: path.join(__dirname, '../../../../.env') });
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -58,7 +56,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
     payload.resource_href = `https://api.uber.com/v2/eats/order/${newResourceId}`;
     const modifiedBody = JSON.stringify(payload);
     
-    const secret = process.env.UBER_CLIENT_SECRET || 'test_secret';
+    const secret = config.UBER_CLIENT_SECRET;
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
 
     const response = await fetch(`${MARKETPLACE_API}`, {
@@ -83,7 +81,7 @@ app.post('/simulator/trigger/doordash', async (req, res) => {
     payload.order.id = crypto.randomUUID();
     payload.order.estimated_pickup_time = new Date().toISOString();
 
-    const token = process.env.DOORDASH_WEBHOOK_AUTH_TOKEN || 'test_doordash_token';
+    const token = config.DOORDASH_WEBHOOK_AUTH_TOKEN;
 
     const response = await fetch(`${MARKETPLACE_API}`, {
       method: 'POST',

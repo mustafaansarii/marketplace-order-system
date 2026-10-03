@@ -26,7 +26,7 @@ describe('Uber Mapper', () => {
     expect(order.status).toBe('new'); // CREATED maps to new
     expect(order.customer.name).toBe('Larry');
     expect(order.customer.phone).toBe('+1 555-555-5555');
-    expect(order.total_cents).toBe(1399);
+    expect(order.total_cents).toBe(702);
     expect(order.currency).toBe('USD');
     expect(order.created_at).toBe('2019-05-14T20:16:54.000Z'); // ISO from 2019-05-14T15:16:54-05:00
     

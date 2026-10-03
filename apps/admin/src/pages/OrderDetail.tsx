@@ -86,16 +86,28 @@ function LineItemsTable({ order }: { order: Order }) {
   );
 }
 
-function DebugPayload({ payload }: { payload: unknown }) {
+function DebugPayload({ order }: { order: Order }) {
   return (
     <details className="mt-8 pt-6 border-t border-slate-100 group">
       <summary className="text-sm font-semibold text-slate-500 cursor-pointer hover:text-slate-800 transition-colors flex items-center gap-2 select-none">
         <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
-        Developer Debug JSON
+        Developer Debug JSON & Raw Cents
       </summary>
-      <pre className="mt-4 p-5 bg-slate-900 rounded-xl text-xs font-mono text-emerald-400 overflow-x-auto shadow-inner">
-        {JSON.stringify(payload, null, 2)}
-      </pre>
+      <div className="mt-4 p-5 bg-slate-900 rounded-xl text-xs font-mono text-emerald-400 overflow-x-auto shadow-inner space-y-4">
+        <div>
+          <span className="text-pink-400">total_cents:</span> {order.total_cents}
+        </div>
+        <div>
+          {order.line_items.map((item, i) => (
+            <div key={i}>
+              <span className="text-pink-400">item {i}:</span> unit_price_cents={item.unit_price_cents}, line_total_cents={item.line_total_cents}
+            </div>
+          ))}
+        </div>
+        <pre>
+          {JSON.stringify(order.raw_payload, null, 2)}
+        </pre>
+      </div>
     </details>
   );
 }
@@ -108,46 +120,80 @@ export default function OrderDetail() {
   const { mutate } = useSWRConfig();
   const url = `/api/orders/${id}`;
   
+  const [actionError, setActionError] = React.useState<string | null>(null);
+
   const { data: order, error, isLoading } = useSWR(url, fetcher);
 
   const advanceOrder = async () => {
     if (!order) return;
-    const flow = [OrderStatus.NEW, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED];
-    const nextStatus = flow[flow.indexOf(order.status) + 1] || order.status;
+    setActionError(null);
+
+    const nextStatus = order.next_status || order.status;
 
     try {
       await mutate(
         url,
         async () => {
           const res = await fetch(`/api/orders/${id}/advance`, { method: 'POST' });
-          if (!res.ok) throw new Error('Failed to advance');
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to advance');
+          }
           return res.json();
         },
         { optimisticData: { ...order, status: nextStatus }, rollbackOnError: true, populateCache: true, revalidate: false }
       );
       mutate(key => typeof key === 'string' && key.startsWith('/api/orders'));
     } catch (e: any) {
-      alert(e.message || 'Error advancing status');
+      setActionError(e.message || 'Error advancing status');
     }
   };
 
   if (isLoading) return <div className="p-8 text-center text-slate-500">Loading order...</div>;
-  if (error || !order) return <div className="p-8 text-center text-red-500">Failed to load order.</div>;
+  
+  if (error) {
+    if (error.status === 404) {
+      return (
+        <div className="p-8 text-center max-w-lg mx-auto">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Order Not Found</h2>
+          <p className="text-slate-500 mb-6">We couldn't find order {id}.</p>
+          <button onClick={() => navigate('/')} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Go to List</button>
+        </div>
+      );
+    }
+    return (
+      <div className="p-8 text-center max-w-lg mx-auto">
+        <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Order</h2>
+        <p className="text-slate-500 mb-6">{error.message || 'Failed to load order.'}</p>
+        <button onClick={() => mutate(url)} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg">Retry</button>
+      </div>
+    );
+  }
+
+  if (!order) return null;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <button 
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          if (window.history.length > 2) navigate(-1);
+          else navigate('/');
+        }}
         className="inline-flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
       >
         <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Orders
       </button>
 
       <div className="p-8 overflow-hidden">
-        
+        {actionError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
+            <span className="text-red-700 font-medium">{actionError}</span>
+            <button onClick={advanceOrder} className="px-3 py-1 bg-white border border-red-200 text-red-700 rounded-lg text-sm font-bold shadow-sm">Retry</button>
+          </div>
+        )}
         <OrderHeader order={order} onAdvance={advanceOrder} />
         <LineItemsTable order={order} />
-        <DebugPayload payload={order.raw_payload} />
+        <DebugPayload order={order} />
         
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 A full-stack application that unifies food delivery orders from multiple platforms (Uber Eats, DoorDash) into a single, cohesive restaurant dashboard. 
 
-The system receives real-time incoming webhooks from external providers, normalizes the varying data structures into a unified format, and allows restaurant staff to track and manage order statuses from a beautiful React interface.
+The system receives incoming webhooks from external providers, normalizes the varying data structures into a unified format, and allows restaurant staff to track and manage order statuses from a beautiful React interface.
 
 ---
 
@@ -40,7 +40,7 @@ flowchart TD
 
 ---
 
-##  Features
+## Features
 - **Webhook Ingestion:** Securely receives and verifies webhooks using platform-specific authentication (e.g., Uber's HMAC SHA-256 signatures and DoorDash's Bearer tokens).
 - **Data Normalization:** Converts totally different Uber and DoorDash JSON payloads into a single `Order` schema.
 - **Idempotent Storage:** Uses atomic MySQL `INSERT ... ON DUPLICATE KEY UPDATE` to safely prevent duplicate orders.
@@ -49,7 +49,7 @@ flowchart TD
 
 ---
 
-##  How to Run Locally
+## How to Run Locally
 
 ### 1. Prerequisites
 - Node.js (v22+)
@@ -63,7 +63,13 @@ npm install
 
 Ensure your `.env` file is properly configured at the root of the project. It must contain your MySQL database URL.
 
-### 3. Start the Application
+### 3. Database Initialization
+Reset the database and populate it with exactly 2 orders (from official fixtures):
+```bash
+npm run db:reset
+```
+
+### 4. Start the Application
 You can boot the entire system (Backend API, React UI, and the Mock Simulator) with a single command:
 ```bash
 npm run dev
@@ -75,7 +81,7 @@ npm run dev
 
 ---
 
-##  Testing the Webhooks
+## Testing the Webhooks
 
 Because testing real Uber and DoorDash webhooks locally is difficult, this project includes a built-in **Mock Server**. 
 
@@ -92,7 +98,7 @@ curl -s -X POST http://localhost:3002/simulator/trigger/uber
 curl -s -X POST http://localhost:3002/simulator/trigger/doordash
 ```
 
-As soon as you run these commands, the simulated orders will securely flow through the backend API and appear instantly on your React Admin Dashboard!
+As soon as you run these commands, the simulated orders will securely flow through the backend API and appear on your React Admin Dashboard (the UI auto-refreshes every 5 seconds).
 
 ### Option B: Manual Webhooks to the API (Port 3001)
 If you want to manually test exactly how a real external provider would hit the ingestor, use these commands. *(Ensure your `.env` client secrets and tokens match!)*
@@ -120,46 +126,69 @@ curl -i -X POST http://localhost:3001/webhooks/orders \
 
 ---
 
-## 🗺 Mapping Table
+## Mapping Table
 
-| Internal Field | Uber Eats | DoorDash |
-|---|---|---|
-| `id` | Generated UUID | Generated UUID |
-| `provider` | `'uber'` | `'doordash'` |
-| `external_order_id` | `meta.resource_id` | `id` (Webhook `order` obj) |
-| `status` | `Get Order -> current_state` | `event.status` (Webhook) |
-| `customer.name` | `eater.first_name` + `eater.last_name` | `consumer.first_name` + `consumer.last_name` |
-| `customer.phone` | `eater.phone` | `consumer.phone` |
-| `line_items[].name` | `cart.items[].title` | `order.categories[].items[].name` |
-| `line_items[].quantity` | `cart.items[].quantity` | `order.categories[].items[].quantity` |
-| `line_items[].unit_price`| `cart.items[].price.unit_price` | `order.categories[].items[].price` |
-| `total_cents` | `payment.charges.total.amount` | `internal normalization: subtotal + tax` |
-| `currency` | `payment.charges.total.currency_code` | Default to `USD` |
-| `created_at` | `placed_at` (Get Order) | Webhook Ingestion Timestamp |
-| `raw_payload` | Full Get Order Response + Webhook | Full Webhook Payload |
-
----
-
-##  Conflicts Log (Working Notes vs. Official Docs)
-
-As requested, here is the log reviewing the working notes provided in the assignment brief against the official documentation:
-
-### Verified as Correct
-- **Uber Webhook Signature:** The working note that `X-Uber-Signature` is an HMAC SHA256 signature of the raw request body was verified as correct.
-- **Uber Webhook Response:** Uber does indeed expect a fast HTTP 200 empty response body to acknowledge receipt. We implemented asynchronous processing so we return `200` immediately before doing the secondary `Get Order` fetch.
-- **DoorDash Customer Phone:** Customer phone numbers are found in `order.consumer.phone` as noted.
-
-### Rejected / Changed
-- **DoorDash monetary fields:** The working notes were uncertain about which field should become `total_cents` and if tax was included. *Change:* We explicitly calculated `total_cents` as the sum of `subtotal` and `tax` to prevent double-counting.
-- **Uber raw payload preservation:** *Change:* We updated Uber raw webhook payload preservation to ensure a complete audit trail by storing **both** the webhook notification payload and the subsequent `Get Order` response.
-
-### Overruled by Official Documentation
-- **Uber cart in webhook:** The working notes suggested Uber might include the full cart in the webhook payload. *Overruled:* The official Uber documentation confirms the webhook only contains event IDs and resource IDs. A secondary `Get Order` API call using the `resource_id` is strictly required to fetch the cart.
-- **DoorDash Marketplace items array:** The working notes mentioned line items might use a top-level `items[]` array. *Overruled:* According to the official DoorDash payload schemas, items are deeply nested inside `order.categories[].items[]`.
+| Internal Field | Uber Eats | DoorDash | Notes |
+|---|---|---|---|
+| `id` | Generated UUID | Generated UUID | Primary key |
+| `provider` | `'uber'` | `'doordash'` | |
+| `external_order_id` | `meta.resource_id` | `order.id` | External identifier |
+| `status` | `Get Order -> current_state` | `event.status` | Normalized to internal enum |
+| `customer.name` | `eater.first_name` + `eater.last_name` | `consumer.first_name` + `consumer.last_name` | |
+| `customer.phone` | `eater.phone` | `consumer.phone` | |
+| `line_items[].name` | `cart.items[].title` | `order.categories[].items[].name` | |
+| `line_items[].quantity` | `cart.items[].quantity` | `order.categories[].items[].quantity` | |
+| `line_items[].unit_price_cents`| `cart.items[].price.unit_price.amount` | `order.categories[].items[].price` | Uber price is nested |
+| `line_items[].line_total_cents`| `cart.items[].price.total_price.amount` | `quantity * price` | DoorDash price is base |
+| `total_cents` | `sub_total.amount` + `tax.amount` | `subtotal + tax` | Aligned to mean food value |
+| `currency` | `payment.charges.total.currency_code` | Default to `USD` | |
+| `created_at` | `placed_at` | Webhook timestamp | |
+| `raw_payload` | Webhook + Get Order | Webhook Payload | Saved for auditing |
 
 ---
 
-##  Project Structure
+## Conflicts Log (Working Notes vs. Official Docs)
+
+| Note | Verdict | Evidence | Implementation |
+|---|---|---|---|
+| Uber may include full cart in webhook | Overruled | Uber Webhooks docs | Implemented async `Get Order` fetch using `resource_id`. |
+| DoorDash line items use top-level `items[]` | Overruled | DoorDash Order Integration docs | Parsed deeply from `order.categories[].items[]`. |
+| DoorDash monetary field for `total_cents` | Changed | N/A | Explicitly calculated as `subtotal + tax` for both providers to mean "food value". |
+| Uber signature generation | Verified | Uber Webhooks docs | Signature is HMAC SHA256 of raw body, checked in `UberAdapter`. |
+| Exact Uber webhook response status | Verified | Uber Webhooks docs | Returning `200 OK` empty body immediately, parsing in background. |
+| DoorDash Drive webhooks are optional | Verified | DoorDash docs | Ignored Drive webhooks (only `OrderCreate` handled). |
+| Uber webhook `resource_id` == Get Order `id` | Verified / Changed | Uber Official Examples | The examples use different UUIDs, but conceptually they represent the same ID. Documented in Mapping Table. |
+| Provider query parameter | Verified | Assignment Brief | Provider detection is entirely payload-based via `matches()` in adapters. |
+| DoorDash customer phone data | Verified | DoorDash docs | Pulled from `consumer.phone`. |
+| Normalize statuses | Verified | Assignment Brief | Mapped to strict internal state machine (`domain/order-status.ts`). |
+
+---
+
+## Walkthrough & Design Decisions
+
+### Architecture
+The API strictly adheres to a layered architecture: **Controller ➔ Service ➔ Domain ➔ Repository**. This ensures business logic (such as order state transitions) is isolated from HTTP routes and data access logic, making it easily testable.
+
+### Pure Adapters
+Provider adapters (`UberAdapter`, `DoorDashAdapter`) are pure classes responsible for detecting, authenticating, and mapping payloads into an `OrderDraft`. They do not have access to the repository. The `IngestService` orchestrates saving these drafts to the database.
+
+### State Machine
+Orders follow a strict, forward-only progression defined in `domain/order-status.ts`. The UI is driven by the backend (`can_advance` and `next_status` flags), preventing scattered frontend logic.
+
+### Fault Tolerance
+Because Uber requires fetching the cart *after* acknowledging the webhook, this process runs in the background. We implemented an in-process retry mechanism with exponential backoff. In a production environment, this would be replaced with a reliable message queue (e.g., Kafka) and an outbox pattern.
+
+---
+
+## Known Trade-offs
+
+- **In-process Background Tasks:** Uber cart fetching runs in-process. If the server crashes after acknowledging the webhook but before saving the order, data is lost. A persistent queue is needed for production.
+- **DoorDash Menu Options:** DoorDash includes modifier options recursively. For this MVP, we ignore deep options and rely on the base item price (as seen in the official sample where total `subtotal` includes options but item `price` may be 0).
+- **Mock Server Integration:** The mock server runs on a separate port but reads from the same configuration file to ensure signature matching works locally.
+
+---
+
+## Project Structure
 
 - **`apps/api/`**: The Node.js Express backend. Handles incoming webhooks, validates signatures, normalizes data, and saves to MySQL.
 - **`apps/admin/`**: The React frontend dashboard for restaurant staff to manage and progress orders. 

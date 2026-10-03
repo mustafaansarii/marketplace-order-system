@@ -44,7 +44,7 @@ export function mapUberOrder(
       unit_price_cents: item.price.unit_price.amount,
       line_total_cents: item.price.total_price.amount,
     })),
-    total_cents: fetchedOrder.payment.charges.total.amount,
+    total_cents: fetchedOrder.payment.charges.sub_total.amount + fetchedOrder.payment.charges.tax.amount,
     currency: fetchedOrder.payment.charges.total.currency_code,
     created_at: fetchedOrder.placed_at 
       ? new Date(fetchedOrder.placed_at).toISOString() 

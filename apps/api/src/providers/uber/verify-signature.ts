@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { AuthError } from '../../http/errors.js';
+import { AuthError } from '../../domain/errors.js';
 
 export function verifyUberSignature(
   secret: string,
@@ -14,14 +14,16 @@ export function verifyUberSignature(
     .createHmac('sha256', secret)
     .update(rawBody)
     .digest('hex');
+    
+  const lowerSignature = signatureHeader.toLowerCase();
 
-  if (expectedSignature.length !== signatureHeader.length) {
+  if (expectedSignature.length !== lowerSignature.length) {
     throw new AuthError('Signature mismatch');
   }
 
   const isValid = crypto.timingSafeEqual(
     Buffer.from(expectedSignature, 'utf8'),
-    Buffer.from(signatureHeader, 'utf8')
+    Buffer.from(lowerSignature, 'utf8')
   );
 
   if (!isValid) {

@@ -24,6 +24,12 @@ export const UberGetOrderSchema = z.object({
       total: z.object({
         amount: z.number(),
         currency_code: z.string()
+      }),
+      sub_total: z.object({
+        amount: z.number()
+      }),
+      tax: z.object({
+        amount: z.number()
       })
     })
   })

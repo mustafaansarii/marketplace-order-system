@@ -1,16 +1,16 @@
 import { Router } from 'express';
-import { OrderRepository } from '../db/order-repository.js';
+import { OrderService } from '../services/order-service.js';
 import { ListQuerySchema } from '../shared/index.js';
-import { PayloadValidationError, OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from './errors.js';
+import { PayloadValidationError, OrderNotFoundError } from '../domain/errors.js';
 import { z } from 'zod';
 
-export function createOrdersRouter(repo: OrderRepository): Router {
+export function createOrdersRouter(orderService: OrderService): Router {
   const router = Router();
 
   router.get('/', async (req, res, next) => {
     try {
       const query = ListQuerySchema.parse(req.query);
-      const result = await repo.list(query);
+      const result = await orderService.list(query);
       res.json(result);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -23,10 +23,12 @@ export function createOrdersRouter(repo: OrderRepository): Router {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const order = await repo.findById(req.params.id);
+      if (!z.string().uuid().safeParse(req.params.id).success) {
+        throw new OrderNotFoundError();
+      }
+      const order = await orderService.get(req.params.id);
       if (!order) {
-        res.status(404).json({ error: 'Not found' });
-        return;
+        throw new OrderNotFoundError();
       }
       res.json(order);
     } catch (err) {
@@ -36,17 +38,12 @@ export function createOrdersRouter(repo: OrderRepository): Router {
 
   router.post('/:id/advance', async (req, res, next) => {
     try {
-      const order = await repo.advanceStatus(req.params.id);
+      if (!z.string().uuid().safeParse(req.params.id).success) {
+        throw new OrderNotFoundError();
+      }
+      const order = await orderService.advance(req.params.id);
       res.json(order);
-    } catch (err: any) {
-      if (err instanceof OrderNotFoundError) {
-        res.status(404).json({ error: err.message });
-        return;
-      }
-      if (err instanceof InvalidStatusTransitionError || err instanceof ConcurrentUpdateError) {
-        res.status(409).json({ error: err.message });
-        return;
-      }
+    } catch (err) {
       next(err);
     }
   });

@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
-import { Order, OrderStatus, STATUS_RANK, ListQuery, OrderSummary } from '../shared/index.js';
+import { ListQuery, Order, OrderStatus, OrderSummary } from '../shared/index.js';
 import { OrderDraft } from '../domain/order.js';
-import { OrderNotFoundError, InvalidStatusTransitionError, ConcurrentUpdateError } from '../http/errors.js';
+import { ConcurrentUpdateError, InvalidStatusTransitionError, OrderNotFoundError } from '../domain/errors.js';
 
 export class OrderRepository {
   constructor(private db: mysql.Pool) {}
@@ -21,10 +21,10 @@ export class OrderRepository {
           currency = VALUES(currency),
           updated_at = VALUES(updated_at),
           raw_payload = VALUES(raw_payload),
-          status = CASE 
+          status = CASE
             WHEN VALUES(status) = 'cancelled' THEN 'cancelled'
             WHEN status = 'cancelled' THEN 'cancelled'
-            WHEN FIELD(VALUES(status), 'new', 'accepted', 'preparing', 'ready', 'completed') > 
+            WHEN FIELD(VALUES(status), 'new', 'accepted', 'preparing', 'ready', 'completed') >
                  FIELD(status, 'new', 'accepted', 'preparing', 'ready', 'completed') THEN VALUES(status)
             ELSE status
           END
@@ -54,31 +54,26 @@ export class OrderRepository {
   }
 
   async list(query: ListQuery): Promise<{ items: OrderSummary[]; total_count: number; total_pages: number; current_page: number }> {
-    const { conditions: baseConditions, params: baseParams } = this.buildBaseFilters(query);
-    const whereBase = baseConditions.length > 0 ? `WHERE ${baseConditions.join(' AND ')}` : '';
+    const { conditions, params } = this.buildBaseFilters(query);
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const [countRows] = await this.db.query<any[]>(
-      `SELECT COUNT(*) AS count FROM orders ${whereBase}`,
-      baseParams
+      `SELECT COUNT(*) AS count FROM orders ${whereClause}`,
+      params
     );
 
     const totalCount = countRows[0]?.count ?? 0;
-    const conditions = [...baseConditions];
-    const params = [...baseParams];
-
     const sortDirection = query.sort === 'time_asc' ? 'ASC' : 'DESC';
-    
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = query.limit ?? 50;
-    const page = query.page ?? 1;
-    const offset = (page - 1) * limit;
+    const currentPage = query.page ?? 1;
+    const offset = (currentPage - 1) * limit;
 
     const [rows] = await this.db.query<any[]>(
       `
         SELECT id, provider, external_order_id, status, customer_name, customer_phone,
                line_items, total_cents, currency, created_at
         FROM orders
-        ${where}
+        ${whereClause}
         ORDER BY created_at ${sortDirection}, id ${sortDirection}
         LIMIT ? OFFSET ?
       `,
@@ -88,7 +83,12 @@ export class OrderRepository {
     const items = rows.map(this.toOrderSummary);
     const totalPages = Math.ceil(totalCount / limit);
 
-    return { items, total_count: totalCount, total_pages: totalPages, current_page: page };
+    return {
+      items,
+      total_count: totalCount,
+      total_pages: totalPages,
+      current_page: currentPage
+    };
   }
 
   async advanceStatus(id: string): Promise<Order> {
@@ -106,13 +106,13 @@ export class OrderRepository {
       OrderStatus.COMPLETED
     ];
 
-    const currentIndex = statusFlow.indexOf(currentOrder.status as OrderStatus);
+    const currentStatusIndex = statusFlow.indexOf(currentOrder.status as OrderStatus);
 
-    if (currentIndex === -1 || currentIndex === statusFlow.length - 1) {
+    if (currentStatusIndex === -1 || currentStatusIndex === statusFlow.length - 1) {
       throw new InvalidStatusTransitionError();
     }
 
-    const nextStatus = statusFlow[currentIndex + 1];
+    const nextStatus = statusFlow[currentStatusIndex + 1];
 
     const [result] = await this.db.query<mysql.ResultSetHeader>(
       `UPDATE orders SET status = ?, updated_at = ? WHERE id = ? AND status = ?`,
@@ -142,7 +142,6 @@ export class OrderRepository {
   }
 
   // -------------------------Helper methods-----------------------
-
 
   private buildBaseFilters(query: ListQuery): { conditions: string[]; params: any[] } {
     const conditions: string[] = [];

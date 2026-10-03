@@ -90,7 +90,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
           {data?.items?.map((order: OrderSummary, idx: number) => (
             <tr 
               key={order.id} 
-              className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+              className="hover:bg-blue-50/50 focus:outline-none focus:bg-blue-50/50 focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors cursor-pointer group"
               tabIndex={0}
               onClick={() => onRowClick(order.id)}
               onKeyDown={(e) => { if (e.key === 'Enter') onRowClick(order.id); }}
@@ -106,7 +106,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400 font-mono ">
-                {order.external_order_id.slice(0, 12)}...
+                {order.external_order_id.length > 12 ? `${order.external_order_id.slice(0, 12)}...` : order.external_order_id}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-bold text-slate-900">{order.customer.name}</div>
@@ -118,7 +118,7 @@ function OrderTable({ data, isLoading, error, onRowClick }: { data: { items: Ord
                 <StatusBadge status={order.status} />
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500 ">
-                {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <ChevronRight className="inline-block h-5 w-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
@@ -174,8 +174,6 @@ function Pagination({ data, onNext, onPrev, limit, onLimitChange }: {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-
-      <div className="w-1/3"></div>
     </div>
   );
 }
@@ -232,7 +230,7 @@ export default function OrderList() {
     return `/api/orders?${p.toString()}`;
   }, [query]);
 
-  const { data, error, isLoading } = useSWR(url, fetcher);
+  const { data, error, isLoading } = useSWR(url, fetcher, { refreshInterval: 5000, keepPreviousData: true });
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -247,7 +245,6 @@ export default function OrderList() {
       
       <Pagination 
         data={data as { total_count: number, total_pages: number, current_page: number } | undefined}
-
         onNext={handleNext}
         onPrev={handlePrev}
         limit={query.limit || '50'}

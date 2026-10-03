@@ -2,10 +2,8 @@ import { ProviderAdapter, IngestOutcome } from '../types.js';
 import { IncomingHttpHeaders } from 'http';
 import { verifyDoorDashToken } from './verify-token.js';
 import { DoorDashWebhookSchema } from './schema.js';
-import { OrderRepository } from '../../db/order-repository.js';
 import { mapDoorDashOrder } from './mapper.js';
-import { PayloadValidationError } from '../../http/errors.js';
-import * as crypto from 'crypto';
+import { PayloadValidationError } from '../../domain/errors.js';
 
 export class DoorDashAdapter implements ProviderAdapter {
   id = 'doordash' as const;
@@ -13,8 +11,7 @@ export class DoorDashAdapter implements ProviderAdapter {
   constructor(
     private expectedToken: string,
     private authHeaderName: string,
-    private defaultCurrency: string,
-    private repo: OrderRepository
+    private defaultCurrency: string
   ) {}
 
   matches(payload: unknown): boolean {
@@ -42,19 +39,15 @@ export class DoorDashAdapter implements ProviderAdapter {
     }
 
     const draft = mapDoorDashOrder(parsed.data, payload, Date.now(), this.defaultCurrency);
-    const generatedId = crypto.randomUUID();
-
-    const internalId = await this.repo.upsertFromMarketplace(draft, generatedId);
-
-    return { type: 'upserted', internalId };
+    return { type: 'draft', draft };
   }
 
-  ack(outcome: IngestOutcome): { status: number; body?: unknown } {
-    if (outcome.type === 'upserted') {
+  ack(outcome: IngestOutcome, internalId?: string): { status: number; body?: unknown } {
+    if (outcome.type === 'draft' && internalId) {
       return {
         status: 200,
         body: {
-          merchant_supplied_id: outcome.internalId,
+          merchant_supplied_id: internalId,
           order_status: 'success'
         }
       };
@@ -62,4 +55,3 @@ export class DoorDashAdapter implements ProviderAdapter {
     return { status: 200, body: { order_status: 'success' } };
   }
 }
-
