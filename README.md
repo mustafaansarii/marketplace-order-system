@@ -64,7 +64,7 @@ npm install
 Ensure your `.env` file is properly configured at the root of the project. It must contain your MySQL database URL.
 
 ### 3. Database Initialization
-Reset the database and populate it with exactly 2 orders (from official fixtures):
+Reset the database schema (this drops all existing tables and creates fresh ones):
 ```bash
 npm run db:reset
 ```

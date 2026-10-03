@@ -1,18 +1,14 @@
 import express from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { config } from '../config.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { UberGetOrderDto, UberNotificationDto } from './dtos/uber.dto.js';
+import { DoorDashWebhookDto } from './dtos/doordash.dto.js';
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // 1. UBER OAUTH & GET ORDER MOCKS (What Uber's API does)
-
 let validToken = 'mock-access-token';
 
 app.post('/oauth/v2/token', (req, res) => {
@@ -24,37 +20,37 @@ app.post('/oauth/v2/token', (req, res) => {
   res.json({ access_token: validToken, expires_in: 3600, token_type: 'Bearer' });
 });
 
+const mockUberDatabase = new Map<string, any>();
+
 app.get('/v2/eats/order/:id', (req, res) => {
   if (req.headers.authorization !== `Bearer ${validToken}`) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
-  try {
-    const fixturePath = path.join(__dirname, '../../../../fixtures/uber/get-order-response.json');
-    const data = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
-    data.id = req.params.id;
-    data.placed_at = new Date().toISOString();
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to read fixture' });
+  
+  const orderId = req.params.id;
+  const existingOrder = mockUberDatabase.get(orderId);
+  
+  if (existingOrder) {
+    res.json(existingOrder);
+    return;
   }
+  
+  res.json(new UberGetOrderDto(orderId));
 });
 
 // 2. WEBHOOK SIMULATORS (Acts like the marketplace sending to US)
-
 const MARKETPLACE_API = 'http://localhost:3001/webhooks/orders';
 
 app.post('/simulator/trigger/uber', async (req, res) => {
   try {
-    const fixturePath = path.join(__dirname, '../../../../fixtures/uber/webhook-orders-notification.json');
-    const rawBody = fs.readFileSync(fixturePath, 'utf8');
+    const notificationDto = new UberNotificationDto();
+    const resourceId = notificationDto.meta.resource_id;
     
-    const payload = JSON.parse(rawBody);
-    const newResourceId = crypto.randomUUID();
-    payload.event_id = crypto.randomUUID();
-    payload.meta.resource_id = newResourceId;
-    payload.resource_href = `https://api.uber.com/v2/eats/order/${newResourceId}`;
-    const modifiedBody = JSON.stringify(payload);
+    // Store matching GET DTO in mock DB
+    mockUberDatabase.set(resourceId, new UberGetOrderDto(resourceId));
+    
+    const modifiedBody = JSON.stringify(notificationDto);
     
     const secret = config.UBER_CLIENT_SECRET;
     const signature = crypto.createHmac('sha256', secret).update(modifiedBody).digest('hex');
@@ -68,7 +64,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
       body: modifiedBody
     });
 
-    res.json({ success: true, status: response.status, resource_id: payload.meta.resource_id });
+    res.json({ success: true, status: response.status, resource_id: resourceId });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -76,10 +72,7 @@ app.post('/simulator/trigger/uber', async (req, res) => {
 
 app.post('/simulator/trigger/doordash', async (req, res) => {
   try {
-    const fixturePath = path.join(__dirname, '../../../../fixtures/doordash/webhook-order-create.json');
-    const payload = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
-    payload.order.id = crypto.randomUUID();
-    payload.order.estimated_pickup_time = new Date().toISOString();
+    const payload = new DoorDashWebhookDto();
 
     const token = config.DOORDASH_WEBHOOK_AUTH_TOKEN;
 
